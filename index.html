@@ -9,7 +9,7 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet@2.2.2/dist/posenet.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2195,7 +2195,7 @@
 
       function setScanState(s) { scanStateRef.current = s; setScanStateRaw(s); }
 
-      /* ---- Pose results handler (MoveNet keypoints — pixel coords) ---- */
+      /* ---- Pose results handler (PoseNet keypoints — position.x/y format) ---- */
       function handlePoseResults(keypoints) {
         if (!canvasRef.current || !videoRef.current) return;
         if (scanStateRef.current !== 'body-align' && scanStateRef.current !== 'body-measuring') return;
@@ -2210,6 +2210,10 @@
 
         if (!keypoints || keypoints.length < 17) { stableFrames.current = 0; return; }
 
+        /* PoseNet keypoints use position.x / position.y */
+        const px = kp => kp.position.x;
+        const py = kp => kp.position.y;
+
         /* Draw skeleton */
         const connections = [[5,6],[5,11],[6,12],[11,12],[11,13],[13,15],[12,14],[14,16]];
         ctx.strokeStyle = 'rgba(196,84,42,0.7)';
@@ -2217,18 +2221,18 @@
         connections.forEach(([i, j]) => {
           const a = keypoints[i], b = keypoints[j];
           if (a && b && a.score > 0.3 && b.score > 0.3) {
-            ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(px(a), py(a)); ctx.lineTo(px(b), py(b)); ctx.stroke();
           }
         });
         [5,6,11,12,15,16].forEach(i => {
           const kp = keypoints[i];
           if (kp && kp.score > 0.3) {
             ctx.fillStyle = '#C4542A';
-            ctx.beginPath(); ctx.arc(kp.x, kp.y, 4, 0, 2*Math.PI); ctx.fill();
+            ctx.beginPath(); ctx.arc(px(kp), py(kp), 4, 0, 2*Math.PI); ctx.fill();
           }
         });
 
-        /* MoveNet indices: 5=lShoulder 6=rShoulder 11=lHip 12=rHip 15=lAnkle 16=rAnkle */
+        /* indices: 5=lShoulder 6=rShoulder 11=lHip 12=rHip 15=lAnkle 16=rAnkle */
         const required = [5, 6, 11, 12, 15, 16];
         const allVis = required.every(i => keypoints[i] && keypoints[i].score > 0.3);
 
@@ -2240,8 +2244,8 @@
 
           if (stableFrames.current >= 60) {
             const kp  = i => keypoints[i];
-            const dst = (a, b) => Math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2);
-            const mid = (a, b) => ({ x:(a.x+b.x)/2, y:(a.y+b.y)/2 });
+            const dst = (a, b) => Math.sqrt((px(a)-px(b))**2 + (py(a)-py(b))**2);
+            const mid = (a, b) => ({ position:{ x:(px(a)+px(b))/2, y:(py(a)+py(b))/2 } });
             const ls=kp(5), rs=kp(6), lh=kp(11), rh=kp(12), la=kp(15), ra=kp(16);
             const shoulderPx = dst(ls, rs);
             const hipPx      = dst(lh, rh);
@@ -2251,7 +2255,7 @@
             const shoulders  = Math.round(shoulderPx / pxPerCm);
             const hips       = Math.round(hipPx      / pxPerCm);
             const torso      = Math.round(torsoPx    / pxPerCm);
-            const legs       = Math.round(legPx       / pxPerCm);
+            const legs       = Math.round(legPx      / pxPerCm);
             const height     = Math.round(torso + legs + 26);
             const recSize    = shoulders<38?'XS':shoulders<40?'S':shoulders<42?'M':shoulders<44?'L':'XL';
             const diff       = shoulders - hips;
@@ -2357,20 +2361,22 @@
             return;
           }
 
-          /* 2 — TF.js MoveNet (WebGL — no WASM, works on all browsers) */
+          /* 2 — PoseNet (WebGL, model weights bundled on jsDelivr — no TFHub download) */
           setScanState('pose-init');
-          if (typeof poseDetection === 'undefined' || typeof tf === 'undefined') {
+          if (typeof posenet === 'undefined' || typeof tf === 'undefined') {
             setCameraError('Body detection library failed to load — using manual entry.');
             setScanState('manual-body');
             return;
           }
           try {
             await tf.ready();
-            const detector = await poseDetection.createDetector(
-              poseDetection.SupportedModels.MoveNet,
-              { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
-            );
-            poseModelRef.current = detector;
+            const net = await posenet.load({
+              architecture: 'MobileNetV1',
+              outputStride: 16,
+              inputResolution: { width: 257, height: 257 },
+              multiplier: 0.5,
+            });
+            poseModelRef.current = net;
           } catch(e) {
             setCameraError('Body detection failed to initialize — using manual entry.');
             setScanState('manual-body');
@@ -2392,8 +2398,8 @@
             await new Promise(r => requestAnimationFrame(r));
             if (videoRef.current && videoRef.current.readyState >= 2 && poseModelRef.current) {
               try {
-                const poses = await poseModelRef.current.estimatePoses(videoRef.current);
-                if (poses.length > 0) handlePoseResults(poses[0].keypoints);
+                const pose = await poseModelRef.current.estimateSinglePose(videoRef.current, { flipHorizontal: false });
+                if (pose) handlePoseResults(pose.keypoints);
               } catch(e) {}
             }
           }
