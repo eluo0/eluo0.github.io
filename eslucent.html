@@ -1,0 +1,3988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Eslucent — Taste & Fit Intelligence</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #F5F0EB;
+      --text: #1A1A1A;
+      --accent: #C4542A;
+      --accent-dark: #A8401F;
+      --accent-light: #F2DDD4;
+      --secondary: #8B7355;
+      --card: #FFFFFF;
+      --border: rgba(139,115,85,0.18);
+      --muted: #B5A898;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #E4DDD6;
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Desktop: simulate browser context */
+    @media (min-width: 900px) {
+      body {
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 0;
+        background: #2C2825;
+      }
+      .browser-chrome {
+        display: flex;
+        flex-direction: column;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+      }
+      .browser-bar {
+        background: #3A3330;
+        padding: 10px 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-shrink: 0;
+      }
+      .browser-dots { display: flex; gap: 6px; }
+      .browser-dot {
+        width: 12px; height: 12px; border-radius: 50%;
+      }
+      .browser-dot:nth-child(1) { background: #FF5F57; }
+      .browser-dot:nth-child(2) { background: #FFBD2E; }
+      .browser-dot:nth-child(3) { background: #28C840; }
+      .browser-url {
+        flex: 1;
+        background: #4A4440;
+        border-radius: 6px;
+        padding: 5px 14px;
+        font-size: 12px;
+        color: #B0A898;
+        font-family: 'Inter', sans-serif;
+        max-width: 520px;
+        margin: 0 auto;
+      }
+      .browser-body {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+        position: relative;
+      }
+      .fake-page {
+        flex: 1;
+        background: #F8F5F2;
+        overflow: hidden;
+        position: relative;
+        filter: blur(1px);
+        opacity: 0.7;
+      }
+    }
+    @media (max-width: 899px) {
+      .browser-chrome { display: contents; }
+      .browser-bar, .fake-page { display: none; }
+      .store-page { min-height: 100vh; }
+      .onboarding-backdrop { position: fixed !important; }
+    }
+
+    /* Fake background page content */
+    .fake-page-inner {
+      padding: 20px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    .fake-product {
+      background: #fff;
+      border-radius: 4px;
+      aspect-ratio: 3/4;
+    }
+    .fake-header {
+      background: #fff;
+      height: 52px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 20px;
+    }
+    .fake-header-logo { width: 80px; height: 16px; background: #1A1A1A; border-radius: 2px; }
+    .fake-header-nav { display: flex; gap: 16px; }
+    .fake-nav-item { width: 48px; height: 10px; background: #ccc; border-radius: 2px; }
+
+    /* Extension wrapper */
+    .extension-wrapper {
+      width: 420px;
+      min-width: 420px;
+      height: 100vh;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      overflow-y: scroll;
+      overflow-x: hidden;
+      position: relative;
+      box-shadow: -4px 0 40px rgba(0,0,0,0.25);
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 899px) {
+      .extension-wrapper {
+        width: 100%;
+        min-width: 0;
+        box-shadow: none;
+        height: 100vh;
+        overflow-y: scroll;
+      }
+    }
+
+    /* Screens */
+    .screen {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      animation: fadeSlide 0.35s ease;
+    }
+
+    @keyframes fadeSlide {
+      from { opacity: 0; transform: translateX(12px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    /* ---- SHARED HEADER ---- */
+    .ext-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px 13px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .ext-logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 19px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+    .ext-logo span { color: var(--accent); }
+    .ext-header-actions { display: flex; gap: 8px; align-items: center; }
+
+    /* ---- BUTTONS ---- */
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 14px 24px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+      display: block;
+      width: 100%;
+      text-align: center;
+    }
+    .btn-primary:hover {
+      background: var(--accent-dark);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(196,84,42,0.28);
+    }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--secondary);
+      border: 1px solid var(--border);
+      padding: 10px 18px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-icon {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 7px 10px;
+      cursor: pointer;
+      color: var(--secondary);
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    .btn-icon:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ---- PROGRESS BAR ---- */
+    .progress-track {
+      height: 2px;
+      background: var(--border);
+      position: relative;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+      border-radius: 1px;
+    }
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 20px 8px;
+      font-size: 11px;
+      color: var(--secondary);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* ---- WELCOME SCREEN ---- */
+    .welcome-screen {
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .welcome-hero {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 32px 32px 24px;
+      text-align: center;
+    }
+    .welcome-eyebrow {
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 500;
+      margin-bottom: 20px;
+    }
+    .welcome-headline {
+      font-family: 'Playfair Display', serif;
+      font-size: 32px;
+      font-weight: 700;
+      line-height: 1.2;
+      color: var(--text);
+      margin-bottom: 16px;
+      letter-spacing: -0.02em;
+    }
+    .welcome-headline em {
+      font-style: italic;
+      color: var(--accent);
+    }
+    .welcome-subline {
+      font-size: 14px;
+      color: var(--secondary);
+      line-height: 1.6;
+      margin-bottom: 36px;
+      max-width: 280px;
+    }
+    .welcome-cta-wrap { width: 100%; max-width: 320px; }
+    .welcome-skip {
+      margin-top: 14px;
+      font-size: 12px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+    .welcome-skip:hover { color: var(--secondary); }
+    .welcome-features {
+      padding: 20px 20px 32px;
+      display: flex;
+      gap: 12px;
+      border-top: 1px solid var(--border);
+      background: var(--bg);
+      flex-shrink: 0;
+    }
+    .feature-chip {
+      flex: 1;
+      background: var(--card);
+      border-radius: 6px;
+      padding: 14px 10px;
+      text-align: center;
+    }
+    .feature-chip-icon { font-size: 20px; margin-bottom: 6px; }
+    .feature-chip-label {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--secondary);
+      line-height: 1.3;
+      letter-spacing: 0.03em;
+    }
+    .welcome-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--accent-light);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 5px 12px;
+      border-radius: 20px;
+      margin-bottom: 28px;
+      letter-spacing: 0.04em;
+    }
+
+    /* ---- SCAN SCREEN ---- */
+    /* Ensure last content never clips at the bottom */
+    .scan-screen,
+    .quiz-screen,
+    .profile-screen,
+    .products-screen,
+    .dashboard-screen,
+    .welcome-screen { padding-bottom: 80px; }
+
+    .scan-screen { background: #000; padding-bottom: 0; }
+    .camera-wrap {
+      position: relative;
+      width: 100%;
+      height: 380px;
+      background: #111;
+      overflow: hidden;
+    }
+    video {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+    .camera-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .scan-line {
+      position: absolute;
+      left: 0; right: 0;
+      height: 1.5px;
+      background: linear-gradient(90deg, transparent 0%, var(--accent) 30%, rgba(255,255,255,0.8) 50%, var(--accent) 70%, transparent 100%);
+      box-shadow: 0 0 12px rgba(196,84,42,0.6);
+      animation: scanMove 2s ease-in-out infinite;
+    }
+    @keyframes scanMove {
+      0%   { top: 5%; opacity: 0; }
+      10%  { opacity: 1; }
+      90%  { opacity: 1; }
+      100% { top: 95%; opacity: 0; }
+    }
+    .corner-bracket {
+      position: absolute;
+      width: 24px; height: 24px;
+    }
+    .corner-bracket.tl { top: 12px; left: 12px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+    .corner-bracket.tr { top: 12px; right: 12px; border-top: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+    .corner-bracket.bl { bottom: 12px; left: 12px; border-bottom: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+    .corner-bracket.br { bottom: 12px; right: 12px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+    .scan-svg-overlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .scan-info-panel {
+      background: var(--bg);
+      padding: 20px;
+      flex: 1;
+    }
+    .scan-status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .scan-status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+    .scan-status-text {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+    }
+    .scan-measurements {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .scan-meas-item {
+      background: var(--card);
+      border-radius: 6px;
+      padding: 10px;
+      text-align: center;
+      transition: all 0.4s;
+    }
+    .scan-meas-item.active {
+      border: 1px solid var(--accent);
+      background: var(--accent-light);
+    }
+    .scan-meas-value {
+      font-family: 'Playfair Display', serif;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      min-height: 28px;
+    }
+    .scan-meas-label {
+      font-size: 10px;
+      color: var(--secondary);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-top: 3px;
+    }
+    .scan-meas-loading {
+      width: 40px; height: 16px;
+      background: linear-gradient(90deg, #e8e0d8 25%, #f5f0eb 50%, #e8e0d8 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.2s infinite;
+      border-radius: 3px;
+      margin: 0 auto;
+    }
+    @keyframes shimmer {
+      0%   { background-position: 200% center; }
+      100% { background-position: -200% center; }
+    }
+    .no-camera-placeholder {
+      width: 100%; height: 380px;
+      background: #1a1814;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: #888;
+    }
+    .no-camera-icon { font-size: 40px; }
+    .no-camera-text { font-size: 14px; color: #666; }
+
+    /* ---- QUIZ SCREEN ---- */
+    .quiz-screen { background: var(--bg); }
+    .quiz-body { padding: 24px 20px; flex: 1; }
+    .quiz-q-number {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+    .quiz-q-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.25;
+      margin-bottom: 6px;
+    }
+    .quiz-q-subtitle {
+      font-size: 13px;
+      color: var(--secondary);
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+    .quiz-options { display: flex; flex-direction: column; gap: 10px; }
+    .quiz-options.grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .quiz-option {
+      background: var(--card);
+      border: 1.5px solid transparent;
+      border-radius: 8px;
+      padding: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .quiz-option:hover { border-color: var(--accent); }
+    .quiz-option.selected {
+      border-color: var(--accent);
+      background: var(--accent-light);
+    }
+    .quiz-option.selected::after {
+      content: '✓';
+      position: absolute;
+      top: 8px; right: 10px;
+      width: 18px; height: 18px;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 50%;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 18px;
+      text-align: center;
+    }
+    .quiz-option-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+    .quiz-option-desc {
+      font-size: 12px;
+      color: var(--secondary);
+      line-height: 1.4;
+    }
+    .quiz-option-icon { font-size: 22px; margin-bottom: 8px; }
+    .color-swatches {
+      display: flex;
+      gap: 4px;
+      margin-top: 10px;
+    }
+    .color-swatch {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,0.5);
+    }
+    .silhouette-wrap {
+      height: 56px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      margin-top: 8px;
+    }
+    .texture-preview {
+      height: 36px;
+      border-radius: 4px;
+      margin-top: 8px;
+    }
+    .mood-image {
+      width: 100%;
+      height: 90px;
+      object-fit: cover;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+    .quiz-footer {
+      padding: 16px 20px 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ---- PROFILE CARD ---- */
+    .profile-screen { background: var(--bg); }
+    .profile-hero {
+      background: var(--text);
+      color: #fff;
+      padding: 28px 20px 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    .profile-hero::before {
+      content: '';
+      position: absolute;
+      top: -40px; right: -40px;
+      width: 200px; height: 200px;
+      background: var(--accent);
+      border-radius: 50%;
+      opacity: 0.12;
+    }
+    .profile-hero::after {
+      content: '';
+      position: absolute;
+      bottom: -60px; left: -20px;
+      width: 160px; height: 160px;
+      background: var(--accent);
+      border-radius: 50%;
+      opacity: 0.08;
+    }
+    .profile-eyebrow {
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .profile-name-label {
+      font-family: 'Playfair Display', serif;
+      font-size: 26px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+    .profile-archetype-badge {
+      display: inline-block;
+      background: var(--accent);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 12px;
+      border-radius: 2px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-top: 8px;
+    }
+    .profile-body { padding: 20px; }
+    .profile-section-title {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--secondary);
+      font-weight: 500;
+      margin-bottom: 12px;
+    }
+    .profile-measurements {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .profile-meas-card {
+      background: var(--card);
+      border-radius: 8px;
+      padding: 12px 10px;
+      text-align: center;
+    }
+    .profile-meas-val {
+      font-family: 'Playfair Display', serif;
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .profile-meas-unit {
+      font-size: 11px;
+      color: var(--secondary);
+    }
+    .profile-meas-name {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-top: 3px;
+    }
+    .profile-taste-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .profile-taste-card {
+      background: var(--card);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .profile-taste-key {
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--secondary);
+      margin-bottom: 5px;
+    }
+    .profile-taste-val {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text);
+      font-family: 'Playfair Display', serif;
+    }
+    .profile-season-card {
+      background: var(--accent);
+      border-radius: 8px;
+      padding: 16px;
+      color: #fff;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .profile-season-icon { font-size: 28px; }
+    .profile-season-label { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.8; margin-bottom: 3px; }
+    .profile-season-name { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; }
+    .profile-actions { display: flex; flex-direction: column; gap: 10px; padding: 0 20px 28px; }
+    .profile-save-note {
+      text-align: center;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    /* ---- PRODUCT GRID ---- */
+    .products-screen { background: var(--bg); }
+    .products-filter-bar {
+      padding: 12px 16px;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      border-bottom: 1px solid var(--border);
+      -webkit-overflow-scrolling: touch;
+    }
+    .products-filter-bar::-webkit-scrollbar { display: none; }
+    .filter-chip {
+      flex-shrink: 0;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid var(--border);
+      color: var(--secondary);
+      background: var(--card);
+      white-space: nowrap;
+    }
+    .filter-chip.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .product-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 12px; }
+    .product-card {
+      background: var(--card);
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .product-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    }
+    .product-image-wrap {
+      position: relative;
+      aspect-ratio: 3/4;
+      overflow: hidden;
+      background: #f0ebe4;
+    }
+    .product-image-wrap img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      transition: transform 0.4s;
+    }
+    .product-card:hover .product-image-wrap img { transform: scale(1.04); }
+    .match-badge {
+      position: absolute;
+      top: 8px; left: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 2px;
+      letter-spacing: 0.04em;
+    }
+    .sale-badge {
+      position: absolute;
+      top: 8px; right: 8px;
+      background: var(--text);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 600;
+      padding: 3px 7px;
+      border-radius: 2px;
+      letter-spacing: 0.04em;
+    }
+    .product-info { padding: 10px 12px 12px; }
+    .product-brand { font-size: 10px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+    .product-name { font-size: 13px; font-weight: 500; color: var(--text); margin: 3px 0 6px; line-height: 1.3; }
+    .product-price-row { display: flex; align-items: center; gap: 6px; }
+    .product-price { font-size: 14px; font-weight: 500; color: var(--text); }
+    .product-price-original { font-size: 12px; color: var(--muted); text-decoration: line-through; }
+
+    /* ---- PRODUCT MODAL ---- */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(26,26,26,0.5);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: flex;
+      align-items: flex-end;
+      animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .modal-sheet {
+      background: var(--bg);
+      width: 100%;
+      max-height: 90vh;
+      border-radius: 16px 16px 0 0;
+      overflow-y: auto;
+      animation: slideUp 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to   { transform: translateY(0); }
+    }
+    .modal-handle {
+      width: 36px; height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin: 12px auto 0;
+    }
+    .modal-close {
+      position: absolute;
+      top: 12px; right: 16px;
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      color: var(--secondary);
+      transition: all 0.2s;
+    }
+    .modal-close:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .modal-image { width: 100%; aspect-ratio: 3/2; object-fit: cover; }
+    .modal-body { padding: 20px; position: relative; }
+    .modal-product-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .modal-brand { font-size: 12px; color: var(--secondary); margin-bottom: 12px; }
+    .fit-recommendation {
+      background: var(--accent-light);
+      border: 1px solid rgba(196,84,42,0.2);
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+    .fit-rec-label {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .fit-rec-size {
+      font-family: 'Playfair Display', serif;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .fit-rec-reason { font-size: 12px; color: var(--secondary); line-height: 1.5; }
+    .sizes-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    .size-pill {
+      padding: 7px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 3px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: var(--text);
+    }
+    .size-pill.recommended {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+    .size-pill:hover:not(.recommended) { border-color: var(--secondary); }
+
+    /* ---- BRAND DASHBOARD ---- */
+    .dashboard-screen { background: var(--bg); }
+    .dashboard-section { padding: 16px 20px; }
+    .dashboard-section-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 14px;
+    }
+    .kpi-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .kpi-card {
+      background: var(--card);
+      border-radius: 8px;
+      padding: 14px 12px;
+      text-align: center;
+    }
+    .kpi-val {
+      font-family: 'Playfair Display', serif;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .kpi-label { font-size: 10px; color: var(--secondary); letter-spacing: 0.06em; text-transform: uppercase; margin-top: 4px; }
+    .kpi-change { font-size: 11px; font-weight: 500; margin-top: 4px; }
+    .kpi-change.up { color: #2A8B55; }
+    .kpi-change.down { color: var(--accent); }
+    .chart-card {
+      background: var(--card);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .chart-card-title { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 14px; }
+    .chart-container { position: relative; height: 160px; }
+    .demand-gap-card {
+      background: var(--text);
+      color: #fff;
+      border-radius: 8px;
+      padding: 18px;
+      margin-bottom: 12px;
+    }
+    .demand-gap-eyebrow {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+    .demand-gap-headline {
+      font-family: 'Playfair Display', serif;
+      font-size: 17px;
+      font-weight: 600;
+      line-height: 1.3;
+      margin-bottom: 8px;
+    }
+    .demand-gap-sub { font-size: 12px; color: #B5A898; line-height: 1.5; }
+    .demand-gap-stat {
+      font-size: 36px;
+      font-family: 'Playfair Display', serif;
+      font-weight: 700;
+      color: var(--accent);
+      margin: 12px 0 4px;
+    }
+    .return-risk-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .return-risk-table th {
+      text-align: left;
+      padding: 8px 0;
+      color: var(--secondary);
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-weight: 500;
+      border-bottom: 1px solid var(--border);
+    }
+    .return-risk-table td {
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(139,115,85,0.08);
+      color: var(--text);
+      vertical-align: middle;
+    }
+    .risk-bar-wrap { display: flex; align-items: center; gap: 8px; }
+    .risk-bar-bg {
+      flex: 1;
+      height: 6px;
+      background: #F0EBE4;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .risk-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 3px;
+    }
+    .risk-pct { font-size: 12px; font-weight: 500; color: var(--accent); min-width: 28px; text-align: right; }
+    .shoppers-row { display: flex; flex-direction: column; gap: 8px; }
+    .shopper-row {
+      background: var(--card);
+      border-radius: 8px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .shopper-avatar {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: var(--accent-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+    .shopper-info { flex: 1; min-width: 0; }
+    .shopper-name { font-size: 13px; font-weight: 500; color: var(--text); }
+    .shopper-meta { font-size: 11px; color: var(--secondary); }
+    .shopper-arch {
+      font-size: 11px;
+      padding: 3px 9px;
+      border-radius: 2px;
+      background: var(--accent-light);
+      color: var(--accent);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .dashboard-divider { height: 1px; background: var(--border); margin: 4px 20px; }
+
+    /* ---- MISC ---- */
+    .section-divider {
+      height: 8px;
+      background: var(--border);
+      opacity: 0.4;
+      margin: 0;
+    }
+    .loading-screen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      flex-direction: column;
+      gap: 16px;
+    }
+    .loading-spinner {
+      width: 32px; height: 32px;
+      border: 2.5px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .products-heading {
+      padding: 16px 16px 4px;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .products-heading-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .products-heading-count { font-size: 13px; color: var(--secondary); }
+    .profile-complete-toast {
+      background: var(--text);
+      color: #fff;
+      padding: 10px 16px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .toast-dot { width: 6px; height: 6px; border-radius: 50%; background: #2A8B55; flex-shrink: 0; }
+    .returning-user-banner {
+      background: var(--accent-light);
+      border-bottom: 1px solid rgba(196,84,42,0.15);
+      padding: 10px 20px;
+      font-size: 12px;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ---- OVERLAY MODE ---- */
+    .store-page {
+      flex: 1;
+      background: #F8F5F2;
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: relative;
+    }
+    .store-page--bg {
+      filter: blur(1.5px);
+      opacity: 0.55;
+      pointer-events: none;
+    }
+
+    .onboarding-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(26,26,26,0.48);
+      backdrop-filter: blur(3px);
+      z-index: 400;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .onboarding-panel {
+      width: 100%;
+      max-width: 420px;
+      max-height: 90%;
+      background: var(--bg);
+      border-radius: 12px;
+      overflow-y: auto;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.4);
+      flex-shrink: 0;
+    }
+    .onboarding-panel .screen { min-height: auto; }
+    .onboarding-panel .welcome-screen,
+    .onboarding-panel .quiz-screen,
+    .onboarding-panel .profile-screen,
+    .onboarding-panel .profiles-screen,
+    .onboarding-panel .compare-screen { padding-bottom: 20px; }
+    .onboarding-panel .scan-screen { padding-bottom: 0; }
+
+    /* Eslucent toolbar */
+    .eslucent-toolbar {
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .eslucent-toolbar-logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      flex-shrink: 0;
+    }
+    .eslucent-toolbar-logo span { color: var(--accent); }
+    .eslucent-toolbar-sep {
+      width: 1px; height: 18px;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+    .eslucent-toolbar-profile {
+      font-size: 11px;
+      color: var(--secondary);
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .eslucent-toolbar-profile strong { color: var(--accent); font-weight: 600; }
+    .eslucent-toolbar-btn {
+      flex-shrink: 0;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--secondary);
+      font-size: 11px;
+      padding: 5px 11px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .eslucent-toolbar-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .eslucent-toolbar-btn.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .eslucent-toolbar-btn.primary:hover { background: var(--accent-dark); }
+
+    /* Filter bar */
+    .eslucent-filter-bar {
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 7px 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      position: sticky;
+      top: 44px;
+      z-index: 99;
+      flex-wrap: wrap;
+    }
+    .filter-select {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 5px 26px 5px 10px;
+      font-size: 12px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238B7355' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+    }
+    .filter-toggle {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      font-size: 11px;
+      color: var(--secondary);
+      background: var(--card);
+      cursor: pointer;
+      transition: all 0.2s;
+      user-select: none;
+      white-space: nowrap;
+      font-family: 'Inter', sans-serif;
+    }
+    .filter-toggle.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .filter-toggle-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.7;
+      flex-shrink: 0;
+    }
+
+    /* Store product grid */
+    .store-product-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      padding: 16px 24px 60px;
+    }
+    @media (max-width: 700px) {
+      .store-product-grid { grid-template-columns: repeat(2, 1fr); padding: 12px 16px 60px; }
+    }
+    .store-product-card {
+      background: #fff;
+      border-radius: 4px;
+      overflow: hidden;
+      cursor: pointer;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      border: 2px solid transparent;
+      position: relative;
+      transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s, opacity 0.35s;
+      will-change: transform;
+    }
+    .store-product-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+    .store-product-card.high-match { border-color: var(--accent); }
+    .store-product-card.low-match { opacity: 0.72; }
+
+    .store-product-image {
+      position: relative;
+      aspect-ratio: 3/4;
+      overflow: hidden;
+      background: #f0ebe4;
+    }
+    .store-product-image img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      transition: transform 0.4s;
+    }
+    .store-product-card:hover .store-product-image img { transform: scale(1.04); }
+
+    .store-match-badge {
+      position: absolute;
+      top: 8px; right: 8px;
+      background: #fff;
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 3px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.15);
+      letter-spacing: 0.02em;
+      z-index: 2;
+    }
+    .store-low-match-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(155,150,145,0.48);
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-end;
+      padding: 8px;
+      z-index: 2;
+    }
+    .store-low-match-badge {
+      background: rgba(255,255,255,0.92);
+      color: #777;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 3px;
+    }
+    .store-sale-badge-img {
+      position: absolute;
+      top: 8px; left: 8px;
+      background: #1A1A1A;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 600;
+      padding: 3px 7px;
+      border-radius: 2px;
+      letter-spacing: 0.04em;
+      z-index: 3;
+    }
+    .store-product-info { padding: 10px 12px 12px; }
+    .store-product-brand { font-size: 10px; color: #aaa; letter-spacing: 0.06em; text-transform: uppercase; }
+    .store-product-name { font-size: 13px; font-weight: 500; color: #1A1A1A; margin: 3px 0 6px; line-height: 1.3; }
+    .store-product-price-row { display: flex; align-items: center; gap: 6px; }
+    .store-product-price { font-size: 13px; font-weight: 600; color: #1A1A1A; }
+    .store-product-price-orig { font-size: 12px; color: #bbb; text-decoration: line-through; }
+    .style-tags-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .style-tag-pill {
+      background: var(--bg);
+      color: var(--accent);
+      font-size: 9px;
+      font-weight: 500;
+      padding: 2px 7px;
+      border-radius: 10px;
+      letter-spacing: 0.03em;
+      text-transform: capitalize;
+      border: 1px solid rgba(196,84,42,0.18);
+    }
+
+    /* Product click tooltip */
+    .product-tooltip {
+      position: fixed;
+      background: var(--bg);
+      border: 1px solid rgba(196,84,42,0.22);
+      border-radius: 8px;
+      padding: 14px 16px;
+      width: 238px;
+      z-index: 350;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+      pointer-events: none;
+      animation: fadeIn 0.15s ease;
+    }
+    .tooltip-score {
+      font-family: 'Playfair Display', serif;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1;
+      margin-bottom: 3px;
+    }
+    .tooltip-score-label {
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--secondary);
+      margin-bottom: 10px;
+    }
+    .tooltip-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text);
+      line-height: 1.45;
+      margin-bottom: 7px;
+    }
+    .tooltip-row:last-child { margin-bottom: 0; }
+    .tooltip-icon { color: var(--accent); flex-shrink: 0; line-height: 1.45; }
+
+    /* Floating badge */
+    .floating-eslucent-badge {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--accent);
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 24px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      z-index: 260;
+      box-shadow: 0 4px 20px rgba(196,84,42,0.45);
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      letter-spacing: 0.03em;
+      user-select: none;
+      font-family: 'Inter', sans-serif;
+    }
+    .floating-eslucent-badge:hover { background: var(--accent-dark); transform: translateY(-2px); }
+    .floating-eslucent-badge.inactive { background: rgba(26,26,26,0.72); }
+
+    /* ---- REAL SCAN SCREEN ---- */
+    .scan-camera-area {
+      position: relative; width: 100%; height: 380px;
+      background: #111; overflow: hidden; flex-shrink: 0;
+    }
+    .scan-camera-area video,
+    .scan-camera-area canvas {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+    .scan-camera-area canvas { z-index: 2; }
+    .scan-overlay-label {
+      position: absolute; bottom: 12px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(26,26,26,0.72);
+      backdrop-filter: blur(4px);
+      color: #fff; font-size: 12px;
+      padding: 6px 14px; border-radius: 20px;
+      z-index: 4; white-space: nowrap;
+      letter-spacing: 0.04em; pointer-events: none;
+    }
+    .scan-measuring-bar {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      padding: 10px 16px;
+      background: rgba(26,26,26,0.85); z-index: 4;
+    }
+    .scan-measuring-bar-label {
+      font-size: 11px; color: rgba(255,255,255,0.7);
+      margin-bottom: 6px; text-align: center;
+    }
+    .scan-measuring-bar-track {
+      height: 4px; background: rgba(255,255,255,0.2);
+      border-radius: 2px; overflow: hidden;
+    }
+    .scan-measuring-bar-fill {
+      height: 100%; background: #C4542A;
+      border-radius: 2px; transition: width 0.3s;
+    }
+    .scan-init-overlay {
+      position: absolute; inset: 0;
+      background: rgba(26,26,26,0.7);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 12px; z-index: 4;
+    }
+    .scan-init-text {
+      font-size: 12px; color: rgba(255,255,255,0.7);
+      letter-spacing: 0.04em;
+    }
+    .scan-placeholder {
+      background: #1a1814; height: 380px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 24px; gap: 8px; flex-shrink: 0;
+    }
+    .scan-placeholder-icon { font-size: 32px; margin-bottom: 4px; }
+    .scan-placeholder-title {
+      color: #fff; font-size: 16px;
+      font-family: 'Playfair Display', serif; font-weight: 600;
+    }
+    .scan-placeholder-sub {
+      color: #888; font-size: 12px;
+      text-align: center; max-width: 240px; line-height: 1.5;
+    }
+
+    /* Manual input form */
+    .manual-input-wrap { padding: 4px 0 12px; }
+    .manual-input-row { margin-bottom: 12px; }
+    .manual-input-label {
+      display: block; font-size: 11px;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--secondary); margin-bottom: 5px;
+    }
+    .manual-input-field {
+      width: 100%; padding: 10px 14px;
+      border: 1.5px solid var(--border); border-radius: 4px;
+      font-size: 14px; font-family: 'Inter', sans-serif;
+      background: var(--card); color: var(--text); outline: none;
+      transition: border-color 0.2s;
+    }
+    .manual-input-field:focus { border-color: var(--accent); }
+
+    /* Undertone picker */
+    .undertone-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 8px; margin-bottom: 14px;
+    }
+    .undertone-card {
+      background: var(--card); border: 2px solid transparent;
+      border-radius: 10px; padding: 14px 8px;
+      text-align: center; cursor: pointer; transition: all 0.2s;
+    }
+    .undertone-card:hover { border-color: var(--accent); }
+    .undertone-card.selected {
+      border-color: var(--accent); background: var(--accent-light);
+    }
+    .undertone-swatch {
+      width: 32px; height: 32px; border-radius: 50%;
+      margin: 0 auto 8px; border: 2px solid rgba(255,255,255,0.5);
+    }
+    .undertone-label { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+    .undertone-desc { font-size: 10px; color: var(--secondary); }
+
+    /* Body-done result card in scan panel */
+    .scan-result-card {
+      background: var(--accent-light);
+      border: 1px solid rgba(196,84,42,0.2);
+      border-radius: 8px; padding: 14px; margin-bottom: 12px;
+    }
+    .scan-result-eyebrow {
+      font-size: 10px; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--accent);
+      font-weight: 600; margin-bottom: 6px;
+    }
+    .scan-result-size {
+      font-family: 'Playfair Display', serif;
+      font-size: 28px; font-weight: 700; color: var(--text);
+    }
+    .scan-result-sub { font-size: 12px; color: var(--secondary); margin-top: 4px; }
+
+    /* ---- 4-SECTION PROFILE CARD ---- */
+    .profile-section {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .profile-section:last-of-type { border-bottom: none; }
+    .profile-section-eyebrow {
+      font-size: 10px; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--accent);
+      font-weight: 600; margin-bottom: 12px;
+    }
+    .profile-section-heading {
+      font-family: 'Playfair Display', serif;
+      font-size: 20px; font-weight: 700; color: var(--text);
+      margin-bottom: 14px;
+    }
+    /* Fit section */
+    .body-shape-row {
+      display: flex; align-items: center;
+      gap: 16px; margin-bottom: 14px;
+    }
+    .body-shape-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 18px; font-weight: 600; color: var(--text);
+      margin-bottom: 6px;
+    }
+    .body-shape-size-badge {
+      display: inline-block; background: var(--accent);
+      color: #fff; font-size: 13px; font-weight: 700;
+      padding: 3px 12px; border-radius: 3px;
+      letter-spacing: 0.06em;
+    }
+    .meas-grid-4 {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 8px; margin-bottom: 10px;
+    }
+    .meas-cell {
+      background: var(--card); border-radius: 6px;
+      padding: 10px 6px; text-align: center;
+    }
+    .meas-cell-val {
+      font-family: 'Playfair Display', serif;
+      font-size: 15px; font-weight: 600; color: var(--text);
+    }
+    .meas-cell-unit { font-size: 10px; color: var(--secondary); }
+    .meas-cell-key {
+      font-size: 9px; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--muted); margin-top: 2px;
+    }
+    .scan-method-note { font-size: 11px; color: var(--muted); font-style: italic; }
+    /* Color section */
+    .palette-row-label {
+      font-size: 10px; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--secondary);
+      margin-bottom: 6px;
+    }
+    .palette-swatches { display: flex; gap: 7px; margin-bottom: 12px; flex-wrap: wrap; }
+    .palette-swatch {
+      width: 26px; height: 26px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.6);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+      position: relative; flex-shrink: 0;
+    }
+    .palette-swatch.avoid::after {
+      content: '×'; position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700;
+      color: rgba(0,0,0,0.5);
+      background: rgba(255,255,255,0.4); border-radius: 50%;
+    }
+    .undertone-note {
+      font-size: 12px; color: var(--secondary);
+      font-style: italic; margin-top: 8px;
+    }
+    /* Style section */
+    .style-tags-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+    .style-pill {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 20px; padding: 4px 11px;
+      font-size: 11px; color: var(--secondary);
+    }
+    .capsule-list { list-style: none; padding: 0; margin: 0; }
+    .capsule-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 0; border-bottom: 1px solid rgba(139,115,85,0.1);
+      font-size: 13px; color: var(--text);
+    }
+    .capsule-item:last-child { border-bottom: none; }
+    .capsule-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent); flex-shrink: 0;
+    }
+    /* Summary section */
+    .shopping-summary-text {
+      font-size: 13px; color: var(--text); line-height: 1.75;
+      padding: 14px; background: var(--accent-light);
+      border-radius: 8px; border-left: 3px solid var(--accent);
+    }
+
+    /* ---- PROFILES SCREEN ---- */
+    .profiles-screen { background: var(--bg); min-height: 100vh; padding-bottom: 60px; }
+    .profiles-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+    .profile-list-card {
+      background: var(--card); border-radius: 10px;
+      padding: 14px 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .plc-active-indicator {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: rgba(42,139,85,0.12); color: #2A8B55;
+      font-size: 10px; font-weight: 600;
+      padding: 2px 8px; border-radius: 10px; margin-bottom: 8px;
+    }
+    .plc-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+    .plc-name { font-size: 14px; font-weight: 600; color: var(--text); flex: 1; min-width: 0; }
+    .plc-season-pill {
+      font-size: 10px; font-weight: 600;
+      padding: 3px 10px; border-radius: 10px;
+      letter-spacing: 0.03em; white-space: nowrap;
+    }
+    .plc-size-badge {
+      background: var(--text); color: #fff;
+      font-size: 10px; font-weight: 700;
+      padding: 3px 8px; border-radius: 2px;
+    }
+    .plc-arch { font-size: 11px; color: var(--secondary); margin-bottom: 8px; }
+    .plc-date { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+    .plc-actions { display: flex; gap: 7px; }
+    .plc-btn {
+      flex: 1; padding: 7px 0; border-radius: 3px;
+      font-size: 12px; font-weight: 500; cursor: pointer;
+      border: 1px solid var(--border); background: var(--bg);
+      color: var(--secondary); font-family: 'Inter', sans-serif;
+      text-align: center; transition: all 0.2s;
+    }
+    .plc-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .plc-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .plc-btn.primary:hover { background: var(--accent-dark); }
+    .plc-btn.danger:hover { border-color: #c0392b; color: #c0392b; }
+    .profiles-empty {
+      text-align: center; padding: 60px 20px; color: var(--muted);
+    }
+    .profiles-empty-icon { font-size: 40px; margin-bottom: 12px; }
+    .profiles-empty-text { font-size: 14px; color: var(--secondary); margin-bottom: 20px; }
+
+    /* ---- COMPARE SCREEN ---- */
+    .compare-screen { background: var(--bg); min-height: 100vh; padding-bottom: 60px; }
+    .compare-body { padding: 14px 16px; }
+    .compare-cols {
+      display: grid; grid-template-columns: 1fr 24px 1fr;
+      gap: 0; align-items: start;
+    }
+    .compare-col {
+      background: var(--card); border-radius: 10px; padding: 14px;
+    }
+    .compare-col.is-active { border: 2px solid var(--accent); }
+    .compare-vs {
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: var(--muted);
+      padding-top: 20px;
+    }
+    .compare-field { margin-bottom: 12px; }
+    .compare-field-label {
+      font-size: 9px; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 3px;
+    }
+    .compare-field-value { font-size: 13px; font-weight: 600; color: var(--text); }
+    .compare-diff { font-size: 11px; color: var(--accent); font-weight: 500; margin-top: 1px; }
+    .compare-note {
+      margin-top: 14px; padding: 12px 14px;
+      background: var(--accent-light);
+      border-radius: 8px; font-size: 12px; color: var(--accent);
+      line-height: 1.5;
+    }
+
+    /* ---- ACTIVE PROFILE INDICATOR (welcome screen) ---- */
+    .active-profile-banner {
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 20px;
+      background: rgba(196,84,42,0.07);
+      border-bottom: 1px solid rgba(196,84,42,0.12);
+    }
+    .apb-dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    }
+    .apb-text { font-size: 12px; color: var(--secondary); flex: 1; }
+    .apb-text strong { color: var(--accent); font-weight: 600; }
+    .apb-link {
+      font-size: 11px; color: var(--accent);
+      text-decoration: underline; cursor: pointer; white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    /* ========================================================
+       CONSTANTS & BRAND COLORS
+    ======================================================== */
+    const C = {
+      accent: '#C4542A',
+      accentDark: '#A8401F',
+      accentLight: '#F2DDD4',
+      bg: '#F5F0EB',
+      text: '#1A1A1A',
+      secondary: '#8B7355',
+      card: '#FFFFFF',
+      muted: '#B5A898',
+    };
+
+    /* ========================================================
+       MOCK DATA
+    ======================================================== */
+    const PRODUCTS = [
+      { id:1,  name:"Oversized Linen Blazer",  brand:"ARKET",           price:189, orig:null, img:"https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=400&fit=crop&h=520", cat:"jacket", archs:["minimalist","classic"],    col:"warm",    sizes:["XS","S","M","L","XL"], fit:"oversized", mat:"lightweight", returnRate:9,  tags:["minimalist","classic"]    },
+      { id:2,  name:"Silk Wrap Blouse",         brand:"& Other Stories", price:95,  orig:null, img:"https://images.unsplash.com/photo-1525507119028-ed4c629a60a3?w=400&fit=crop&h=520", cat:"top",    archs:["romantic","classic"],      col:"warm",    sizes:["XS","S","M","L","XL"], fit:"relaxed",   mat:"soft",        returnRate:11, tags:["romantic","classic"]      },
+      { id:3,  name:"Cotton Poplin Shirt",      brand:"Everlane",        price:58,  orig:null, img:"https://images.unsplash.com/photo-1485462537746-965f33f7f6a7?w=400&fit=crop&h=520", cat:"top",    archs:["minimalist","classic"],    col:"neutral", sizes:["XS","S","M","L","XL"], fit:"relaxed",   mat:"lightweight", returnRate:8,  tags:["minimalist","classic"]    },
+      { id:4,  name:"Midi Wrap Dress",          brand:"Reformation",     price:218, orig:null, img:"https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=400&fit=crop&h=520", cat:"dress",  archs:["romantic","classic"],      col:"warm",    sizes:["XS","S","M","L","XL"], fit:"fitted",    mat:"soft",        returnRate:14, tags:["romantic","classic"]      },
+      { id:5,  name:"Satin Slip Dress",         brand:"Zara",            price:69,  orig:null, img:"https://images.unsplash.com/photo-1539008835657-9e8e9680c956?w=400&fit=crop&h=520", cat:"dress",  archs:["minimalist","eclectic"],   col:"cool",    sizes:["XS","S","M","L","XL"], fit:"fitted",    mat:"soft",        returnRate:18, tags:["minimalist","eclectic"]   },
+      { id:6,  name:"Floral Midi Dress",        brand:"& Other Stories", price:135, orig:null, img:"https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=400&fit=crop&h=520", cat:"dress",  archs:["romantic","eclectic"],     col:"warm",    sizes:["XS","S","M","L","XL"], fit:"relaxed",   mat:"lightweight", returnRate:16, tags:["romantic","eclectic"]     },
+      { id:7,  name:"Wide Leg Trousers",        brand:"COS",             price:115, orig:null, img:"https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=400&fit=crop&h=520", cat:"pants",  archs:["minimalist","classic"],    col:"neutral", sizes:["XS","S","M","L","XL"], fit:"relaxed",   mat:"structured",  returnRate:12, tags:["minimalist","classic"]    },
+      { id:8,  name:"Tailored Slim Pants",      brand:"Everlane",        price:88,  orig:null, img:"https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=400&fit=crop&h=520", cat:"pants",  archs:["classic","minimalist"],    col:"neutral", sizes:["XS","S","M","L","XL"], fit:"tailored",  mat:"structured",  returnRate:10, tags:["classic","minimalist"]    },
+      { id:9,  name:"Classic Wool Coat",        brand:"Toteme",          price:690, orig:null, img:"https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?w=400&fit=crop&h=520", cat:"coat",   archs:["minimalist","classic"],    col:"cool",    sizes:["XS","S","M","L","XL"], fit:"tailored",  mat:"structured",  returnRate:5,  tags:["minimalist","classic"]    },
+      { id:10, name:"Leather Moto Jacket",      brand:"Aritzia",         price:328, orig:null, img:"https://images.unsplash.com/photo-1548624313-0396c75e4b1a?w=400&fit=crop&h=520", cat:"jacket", archs:["streetwear","eclectic"],   col:"neutral", sizes:["XS","S","M","L","XL"], fit:"fitted",    mat:"structured",  returnRate:7,  tags:["streetwear","eclectic"]   },
+      { id:11, name:"Chunky Knit Sweater",      brand:"H&M",             price:49,  orig:null, img:"https://images.unsplash.com/photo-1516762689617-e1cffcef479d?w=400&fit=crop&h=520", cat:"top",    archs:["eclectic","romantic"],     col:"warm",    sizes:["XS","S","M","L","XL"], fit:"oversized", mat:"textured",    returnRate:13, tags:["eclectic","romantic"]     },
+      { id:12, name:"Ribbed Turtleneck",        brand:"COS",             price:79,  orig:null, img:"https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=400&fit=crop&h=520", cat:"top",    archs:["minimalist","streetwear"], col:"cool",    sizes:["XS","S","M","L","XL"], fit:"fitted",    mat:"soft",        returnRate:8,  tags:["minimalist","streetwear"] },
+    ];
+
+    const MOCK_SHOPPERS = [
+      { name:"Emma K.",    initials:"EK", archetype:"Minimalist", colorSeason:"Cool Winter",   fitProfile:{ shoulders:40, chest:88,  waist:68, hips:94, height:168 }, topStyles:["minimalist","classic"] },
+      { name:"Sofía R.",   initials:"SR", archetype:"Romantic",   colorSeason:"Warm Autumn",   fitProfile:{ shoulders:38, chest:85,  waist:65, hips:92, height:163 }, topStyles:["romantic","eclectic"] },
+      { name:"Yuki T.",    initials:"YT", archetype:"Classic",    colorSeason:"Cool Summer",   fitProfile:{ shoulders:42, chest:91,  waist:72, hips:98, height:172 }, topStyles:["classic","minimalist"] },
+      { name:"Amara D.",   initials:"AD", archetype:"Eclectic",   colorSeason:"Warm Spring",   fitProfile:{ shoulders:39, chest:87,  waist:67, hips:93, height:165 }, topStyles:["eclectic","streetwear"] },
+      { name:"Petra M.",   initials:"PM", archetype:"Minimalist", colorSeason:"Cool Winter",   fitProfile:{ shoulders:41, chest:90,  waist:71, hips:97, height:170 }, topStyles:["minimalist","classic"] },
+    ];
+
+    const QUIZ_QUESTIONS = [
+      {
+        id: 1,
+        category: "Color Affinity",
+        title: "What palette calls to you?",
+        subtitle: "Your instinctive color world shapes everything else.",
+        type: "color",
+        options: [
+          { id:"warm",    label:"Warm Tones",   desc:"Terracotta, camel, rust, ivory", swatches:["#C4542A","#D4956A","#B8860B","#F5E6D3"] },
+          { id:"cool",    label:"Cool Tones",   desc:"Slate, lavender, ice blue, navy", swatches:["#4A6B8A","#7B9BB5","#9B89B4","#2C3E50"] },
+          { id:"neutral", label:"True Neutrals",desc:"Black, grey, white, cream", swatches:["#1A1A1A","#6B6B6B","#BDBDBD","#F5F5F5"] },
+          { id:"bold",    label:"Bold & Vivid", desc:"Emerald, cobalt, scarlet, fuchsia", swatches:["#E63946","#2A9D8F","#264653","#F4A261"] },
+        ]
+      },
+      {
+        id: 2,
+        category: "Fit Preference",
+        title: "How do you like clothes to feel?",
+        subtitle: "Think of your most-worn piece right now.",
+        type: "silhouette",
+        options: [
+          { id:"oversized", label:"Oversized",  desc:"Roomy, draped, intentionally large", icon:"🧥" },
+          { id:"relaxed",   label:"Relaxed",    desc:"Easy fit with breathing room", icon:"👕" },
+          { id:"fitted",    label:"Fitted",     desc:"Follows your body without hugging", icon:"🫱" },
+          { id:"tailored",  label:"Tailored",   desc:"Precise, structured, sharp lines", icon:"🧷" },
+        ]
+      },
+      {
+        id: 3,
+        category: "Lifestyle Context",
+        title: "Where do you live in your clothes?",
+        subtitle: "Pick the context that takes up most of your week.",
+        type: "lifestyle",
+        options: [
+          { id:"casual",       label:"Casual Weekend",   desc:"Low-key, effortless, at ease", icon:"☀️" },
+          { id:"professional", label:"Professional",     desc:"Office, meetings, presentations", icon:"💼" },
+          { id:"evening",      label:"Evening & Social", desc:"Dinners, events, going out", icon:"🌙" },
+          { id:"active",       label:"Active & Sport",   desc:"Movement, travel, outdoor", icon:"⚡" },
+        ]
+      },
+      {
+        id: 4,
+        category: "Material Sensitivity",
+        title: "What does your skin prefer?",
+        subtitle: "Materials matter as much as silhouette.",
+        type: "material",
+        options: [
+          { id:"soft",        label:"Soft & Fluid",   desc:"Silk, jersey, modal — drapes and moves", bg:"linear-gradient(135deg,#F5E6E0,#EDD5CB)" },
+          { id:"structured",  label:"Structured",     desc:"Denim, canvas, wool — holds its shape",  bg:"linear-gradient(135deg,#D8D0C8,#C4BCB0)" },
+          { id:"lightweight", label:"Lightweight",    desc:"Linen, chiffon, bamboo — breathes freely",bg:"linear-gradient(135deg,#EAE8E0,#D8D4C8)" },
+          { id:"textured",    label:"Textured",       desc:"Boucle, knit, velvet — rich to the touch", bg:"linear-gradient(135deg,#D4C8B8,#C0B0A0)" },
+        ]
+      },
+      {
+        id: 5,
+        category: "Aesthetic Archetype",
+        title: "Which world is yours?",
+        subtitle: "Not who you are every day — who you are at your best.",
+        type: "archetype",
+        options: [
+          { id:"minimalist", label:"Minimalist", desc:"Clean lines, monochrome, quiet confidence", img:"https://picsum.photos/seed/moodMini/200/120" },
+          { id:"classic",    label:"Classic",    desc:"Timeless cuts, refined palette, investment pieces", img:"https://picsum.photos/seed/moodClass/200/120" },
+          { id:"eclectic",   label:"Eclectic",   desc:"Unexpected layering, texture play, art-minded", img:"https://picsum.photos/seed/moodEcle/200/120" },
+          { id:"streetwear", label:"Streetwear", desc:"Bold graphics, urban energy, statement silhouettes", img:"https://picsum.photos/seed/moodStreet/200/120" },
+          { id:"romantic",   label:"Romantic",   desc:"Soft femininity, florals, delicate details", img:"https://picsum.photos/seed/moodRomantic/200/120" },
+        ]
+      },
+    ];
+
+    /* ========================================================
+       UTILITY FUNCTIONS
+    ======================================================== */
+    function deriveColorSeason(colorAffinity, materialPref) {
+      const map = {
+        warm_soft: "Warm Spring",
+        warm_structured: "Warm Autumn",
+        warm_lightweight: "Warm Summer",
+        warm_textured: "Warm Autumn",
+        cool_soft: "Cool Summer",
+        cool_structured: "Cool Winter",
+        cool_lightweight: "Cool Summer",
+        cool_textured: "Cool Winter",
+        neutral_soft: "Soft Summer",
+        neutral_structured: "True Winter",
+        neutral_lightweight: "Soft Summer",
+        neutral_textured: "Deep Autumn",
+        bold_soft: "Clear Spring",
+        bold_structured: "Deep Winter",
+        bold_lightweight: "Clear Spring",
+        bold_textured: "Deep Autumn",
+      };
+      return map[`${colorAffinity}_${materialPref}`] || "True Season";
+    }
+
+    function colorSeasonIcon(season) {
+      if (season.includes("Spring")) return "🌸";
+      if (season.includes("Summer")) return "☀️";
+      if (season.includes("Autumn")) return "🍂";
+      if (season.includes("Winter")) return "❄️";
+      return "✦";
+    }
+
+    function computeMatchScore(product, profile) {
+      if (!profile || !profile.tasteProfile) return Math.floor(Math.random() * 20) + 60;
+      let score = 62;
+      const archetype = profile.tasteProfile.archetype || "";
+      const color = profile.tasteProfile.colorAffinity || "";
+      const fit = profile.tasteProfile.fitPreference || "";
+      const mat = profile.tasteProfile.material || "";
+
+      if (product.archs.includes(archetype)) score += 18;
+      else if (product.archs.some(a => ["minimalist","classic"].includes(a)) && ["minimalist","classic"].includes(archetype)) score += 8;
+
+      if (product.col === color) score += 9;
+      else if (product.col === "neutral") score += 4;
+
+      if (product.fit === fit) score += 8;
+      if (product.mat === mat) score += 6;
+
+      // small variation
+      const seed = product.id * 7 % 5;
+      score += seed - 2;
+
+      return Math.min(99, Math.max(55, score));
+    }
+
+    function recommendSize(measurements, sizes) {
+      if (!measurements || sizes.length <= 1) return sizes[0];
+      const waist = measurements.waist;
+      const sizeMap = { XS: 62, S: 68, M: 74, L: 80, XL: 88, XXL: 96 };
+      let best = sizes[0];
+      let bestDiff = Infinity;
+      sizes.forEach(s => {
+        const target = sizeMap[s];
+        if (target !== undefined) {
+          const diff = Math.abs(waist - target);
+          if (diff < bestDiff) { bestDiff = diff; best = s; }
+        }
+      });
+      return best;
+    }
+
+    function generateFitProfile() {
+      const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+      return {
+        shoulders: rand(37, 44),
+        chest: rand(82, 100),
+        waist: rand(64, 80),
+        hips: rand(88, 106),
+        height: rand(158, 180),
+        inseam: rand(70, 82),
+      };
+    }
+
+    function saveProfileToStorage(fitProfile, tasteProfile) {
+      const data = { fitProfile, tasteProfile, savedAt: new Date().toISOString() };
+      localStorage.setItem('eslucent_profile', JSON.stringify(data));
+    }
+
+    function loadProfileFromStorage() {
+      try {
+        const raw = localStorage.getItem('eslucent_profile');
+        return raw ? JSON.parse(raw) : null;
+      } catch { return null; }
+    }
+
+    /* ========================================================
+       COLOR SEASON DATA & SCIENCE
+    ======================================================== */
+    const SEASON_PALETTES = {
+      'Light Spring':  { best:['#F9C4A0','#F7E4C0','#B8D4A8','#A8C8D8','#F4B8C8','#FFD4A0'], avoid:['#1A1A1A','#8B0000','#4B0082','#2F4F4F'] },
+      'True Spring':   { best:['#FF9050','#FFD060','#A8D098','#60A8A0','#F0A050','#E8C090'], avoid:['#000080','#8B4513','#483D8B','#696969'] },
+      'Warm Spring':   { best:['#F4A460','#DEB887','#8FBC8F','#CD853F','#DAA520','#BC8F5F'], avoid:['#483D8B','#191970','#8B008B','#4169E1'] },
+      'True Autumn':   { best:['#C4542A','#8B6914','#556B2F','#8B2500','#D4956A','#2E8B57'], avoid:['#FF69B4','#87CEEB','#E0E0E0','#FFB6C1'] },
+      'Deep Autumn':   { best:['#8B2500','#4A3728','#2D5016','#7B3F00','#B8860B','#556B2F'], avoid:['#FFB6C1','#E0F0FF','#FFFACD','#D3D3D3'] },
+      'Soft Autumn':   { best:['#B8997A','#C4A882','#8B7355','#A0856C','#9CAF88','#B5A898'], avoid:['#FF0000','#0000FF','#FFFF00','#FF69B4'] },
+      'Light Summer':  { best:['#B0C4D8','#D4A8C0','#B0D4C0','#C8B0D4','#D4C4B0','#B8D0E0'], avoid:['#FF4500','#8B4513','#006400','#8B0000'] },
+      'True Summer':   { best:['#9BB7D4','#C4A8C0','#A8C4B0','#B8A8D4','#D4B0A8','#88A8C0'], avoid:['#FF6600','#FFD700','#8B0000','#006400'] },
+      'Cool Summer':   { best:['#8B9BB8','#B08898','#8BA898','#9888B0','#B8A090','#7A90A8'], avoid:['#FF8C00','#FFD700','#8B4513','#228B22'] },
+      'True Winter':   { best:['#1A1A6E','#8B0000','#006400','#4B0082','#00008B','#C4542A'], avoid:['#DEB887','#F4A460','#8B7355','#D2B48C'] },
+      'Deep Winter':   { best:['#000080','#8B0000','#1A1A1A','#4B0082','#006400','#2C2C54'], avoid:['#F5DEB3','#FFE4B5','#D2B48C','#F0E68C'] },
+      'Bright Winter': { best:['#FF0080','#00BFFF','#FF4500','#7B68EE','#00CED1','#FF1493'], avoid:['#B8860B','#8B7355','#A0856C','#9CAF88'] },
+    };
+
+    function rgbToLab(r, g, b) {
+      let rn = r/255, gn = g/255, bn = b/255;
+      rn = rn > 0.04045 ? Math.pow((rn+0.055)/1.055, 2.4) : rn/12.92;
+      gn = gn > 0.04045 ? Math.pow((gn+0.055)/1.055, 2.4) : gn/12.92;
+      bn = bn > 0.04045 ? Math.pow((bn+0.055)/1.055, 2.4) : bn/12.92;
+      const X=(rn*0.4124564+gn*0.3575761+bn*0.1804375)/0.95047;
+      const Y=(rn*0.2126729+gn*0.7151522+bn*0.0721750)/1.00000;
+      const Z=(rn*0.0193339+gn*0.1191920+bn*0.9503041)/1.08883;
+      const f = t => t > 0.008856 ? Math.cbrt(t) : 7.787*t + 16/116;
+      const fx=f(X), fy=f(Y), fz=f(Z);
+      const L=116*fy-16, a=500*(fx-fy), bv=200*(fy-fz);
+      return { L, a, b:bv, C:Math.sqrt(a*a+bv*bv) };
+    }
+
+    function mapToColorSeason(lab) {
+      const { L, b:bv, C } = lab;
+      const temp  = bv > 8 ? 'warm' : bv < 4 ? 'cool' : 'neutral';
+      const value  = L  > 68 ? 'light' : L < 52 ? 'deep' : 'medium';
+      const chroma = C  > 22 ? 'bright' : C < 16 ? 'muted' : 'medium';
+      let season;
+      if (temp==='warm'  && value==='light'  && chroma==='bright') season='Light Spring';
+      else if (temp==='warm'  && value==='light')                   season='True Spring';
+      else if (temp==='warm'  && value==='medium' && chroma==='bright') season='Warm Spring';
+      else if (temp==='warm'  && value==='deep'  && chroma==='bright') season='True Autumn';
+      else if (temp==='warm'  && value==='deep')                    season='Deep Autumn';
+      else if (temp==='neutral' && bv >= 4)                         season='Soft Autumn';
+      else if (temp==='cool'  && value==='light'  && chroma==='muted')  season='Light Summer';
+      else if (temp==='cool'  && value==='light')                   season='True Summer';
+      else if (temp==='cool'  && value==='medium')                  season='Cool Summer';
+      else if (temp==='cool'  && value==='deep'  && chroma==='bright')  season='True Winter';
+      else if (temp==='cool'  && value==='deep')                    season='Deep Winter';
+      else if (chroma==='bright')                                   season='Bright Winter';
+      else                                                          season='Soft Autumn';
+      const pal = SEASON_PALETTES[season] || { best:['#C4542A','#8B7355','#4A6B8A','#2A8B55','#9B89B4','#D4956A'], avoid:['#1A1A1A','#FF69B4','#FFD700','#00FF00'] };
+      return {
+        season, value, chroma,
+        undertone: temp==='warm' ? 'warm golden undertone' : temp==='cool' ? 'cool pink/blue undertone' : 'neutral undertone',
+        bestColors: pal.best, avoidColors: pal.avoid,
+      };
+    }
+
+    function undertoneToColorProfile(undertone, colorAffinity) {
+      const key = undertone + '_' + (colorAffinity || 'neutral');
+      const map = {
+        warm_warm:'True Autumn', warm_cool:'Warm Spring', warm_neutral:'Soft Autumn', warm_bold:'True Autumn',
+        cool_cool:'Cool Summer', cool_warm:'True Winter', cool_neutral:'Light Summer', cool_bold:'True Winter',
+        neutral_warm:'Soft Autumn', neutral_cool:'Cool Summer', neutral_neutral:'True Summer', neutral_bold:'Bright Winter',
+      };
+      const season = map[key] || 'Soft Autumn';
+      const pal = SEASON_PALETTES[season] || { best:[], avoid:[] };
+      return {
+        season, undertone: undertone + ' undertone', value:'medium', chroma:'medium',
+        bestColors: pal.best, avoidColors: pal.avoid, analysisMethod:'quiz',
+      };
+    }
+
+    /* ========================================================
+       PROFILE MANAGEMENT
+    ======================================================== */
+    const PROFILES_STORE_KEY = 'eslucent_profiles';
+    const ACTIVE_PROFILE_KEY = 'eslucent_active_id';
+
+    function loadAllProfiles() {
+      try { return JSON.parse(localStorage.getItem(PROFILES_STORE_KEY)) || []; } catch { return []; }
+    }
+    function saveAllProfiles(profiles) {
+      localStorage.setItem(PROFILES_STORE_KEY, JSON.stringify(profiles));
+    }
+    function getActiveProfileId() {
+      return localStorage.getItem(ACTIVE_PROFILE_KEY) || null;
+    }
+    function setActiveProfileId(id) {
+      if (id) localStorage.setItem(ACTIVE_PROFILE_KEY, id);
+      else localStorage.removeItem(ACTIVE_PROFILE_KEY);
+    }
+    function createProfileId() {
+      return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    }
+    function upsertProfile(profile) {
+      let profiles = loadAllProfiles();
+      const idx = profiles.findIndex(p => p.id === profile.id);
+      if (idx >= 0) { profiles[idx] = profile; }
+      else {
+        if (profiles.length >= 10) {
+          profiles.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+          profiles.shift();
+        }
+        profiles.push(profile);
+      }
+      saveAllProfiles(profiles);
+    }
+    function removeProfile(id) {
+      saveAllProfiles(loadAllProfiles().filter(p => p.id !== id));
+    }
+
+    const CAPSULE_ESSENTIALS = {
+      minimalist: ['Classic white button-down', 'Straight-leg tailored trousers', 'Simple cashmere crewneck', 'Unstructured linen blazer', 'Slip skirt in neutral'],
+      classic:    ['Silk blouse', 'A-line midi skirt', 'Tailored blazer', 'Straight-leg jeans', 'Trench coat'],
+      eclectic:   ['Printed statement dress', 'Mixed-texture layering piece', 'Wide-leg statement trouser', 'Artful oversized coat', 'Bold print blouse'],
+      streetwear: ['Oversized graphic tee', 'Technical wide-leg pants', 'Bomber jacket', 'Statement sneakers', 'Cargo utility pants'],
+      romantic:   ['Floral midi dress', 'Lace or eyelet blouse', 'Soft wrap dress', 'Ruffled feminine skirt', 'Delicate knitwear'],
+    };
+
+    function buildFullProfile(fitProfile, colorProfile, styleProfile) {
+      const arch = styleProfile?.archetype || 'classic';
+      return {
+        id: createProfileId(),
+        createdAt: new Date().toISOString(),
+        fitProfile: { ...fitProfile },
+        colorProfile: { ...colorProfile },
+        styleProfile: { ...styleProfile },
+        recommendations: {
+          capsuleEssentials: CAPSULE_ESSENTIALS[arch] || CAPSULE_ESSENTIALS.classic,
+        },
+      };
+    }
+
+    /* ========================================================
+       WELCOME SCREEN
+    ======================================================== */
+    function WelcomeScreen({ onStart, activeProfile, profiles, onMyProfiles }) {
+      const arch   = activeProfile?.styleProfile?.archetype;
+      const season = activeProfile?.colorProfile?.season;
+      const dotColor = activeProfile?.colorProfile?.bestColors?.[0] || C.accent;
+      const archLabel = arch ? arch.charAt(0).toUpperCase() + arch.slice(1) : null;
+
+      return (
+        <div className="screen welcome-screen">
+          <header className="ext-header">
+            <span className="ext-logo">esl<span>ucent</span></span>
+            <button className="btn-ghost" style={{fontSize:'11px',padding:'6px 12px'}}>
+              How it works
+            </button>
+          </header>
+
+          {activeProfile && (
+            <div className="active-profile-banner">
+              <div className="apb-dot" style={{background:dotColor}} />
+              <div className="apb-text">
+                <strong>{archLabel || 'Profile'}</strong>
+                {season ? ` · ${season}` : ''}
+              </div>
+              <div className="apb-link" onClick={onMyProfiles}>
+                My Profiles ({profiles.length})
+              </div>
+            </div>
+          )}
+
+          <div className="welcome-hero">
+            <div className="welcome-badge">
+              <span>✦</span>
+              Taste & Fit Intelligence
+            </div>
+
+            <h1 className="welcome-headline">
+              You found the outfit.<br />
+              <em>We make it yours.</em>
+            </h1>
+
+            <p className="welcome-subline">
+              Your personal fit and style profile in 60 seconds — works across every brand you shop.
+            </p>
+
+            <div className="welcome-cta-wrap">
+              <button className="btn-primary" onClick={onStart}>
+                {activeProfile ? 'Update Your Profile' : 'Find Your Fit'}
+              </button>
+              {activeProfile && (
+                <div className="welcome-skip" onClick={() => onStart('skip')}>
+                  Skip to product matches →
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="welcome-features">
+            <div className="feature-chip">
+              <div className="feature-chip-icon">📐</div>
+              <div className="feature-chip-label">Body<br />Scan</div>
+            </div>
+            <div className="feature-chip">
+              <div className="feature-chip-icon">🎨</div>
+              <div className="feature-chip-label">Color<br />Profile</div>
+            </div>
+            <div className="feature-chip">
+              <div className="feature-chip-icon">✦</div>
+              <div className="feature-chip-label">Smart<br />Match</div>
+            </div>
+            <div className="feature-chip">
+              <div className="feature-chip-icon">🔒</div>
+              <div className="feature-chip-label">Yours<br />Always</div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ========================================================
+       SCAN SCREEN — Real MediaPipe Pose + Face Mesh
+    ======================================================== */
+    function ScanScreen({ onComplete, existingFitProfile }) {
+      const videoRef       = useRef(null);
+      const canvasRef      = useRef(null);
+      const poseModelRef   = useRef(null);
+      const faceMeshRef    = useRef(null);
+      const streamRef      = useRef(null);
+      const bodyResultsRef = useRef(null);
+      const colorResultsRef= useRef(null);
+      const stableFrames   = useRef(0);
+      const colorFrames    = useRef(0);
+      const scanStateRef   = useRef('cam-init');
+      const activeRef      = useRef(true);
+
+      const [scanState,  setScanStateRaw] = useState('cam-init');
+      const [bodyProgress, setBodyProgress] = useState(0);
+      const [bodyData,   setBodyData]    = useState(null);
+      const [undertone,  setUndertone]   = useState(null);
+      const [manualData, setManualData]  = useState({
+        height:    existingFitProfile?.height    ? String(existingFitProfile.height)    : '',
+        shoulders: existingFitProfile?.shoulders ? String(existingFitProfile.shoulders) : '',
+        hips:      existingFitProfile?.hips      ? String(existingFitProfile.hips)      : '',
+      });
+      const [cameraError, setCameraError] = useState('');
+      const [retryKey,   setRetryKey]    = useState(0);
+
+      function setScanState(s) { scanStateRef.current = s; setScanStateRaw(s); }
+
+      /* ---- Pose results handler ---- */
+      function handlePoseResults(results) {
+        if (!canvasRef.current || !videoRef.current) return;
+        if (scanStateRef.current !== 'body-align' && scanStateRef.current !== 'body-measuring') return;
+
+        const canvas = canvasRef.current;
+        const ctx    = canvas.getContext('2d');
+        const W = videoRef.current.videoWidth  || 640;
+        const H = videoRef.current.videoHeight || 480;
+        if (canvas.width !== W)  canvas.width  = W;
+        if (canvas.height !== H) canvas.height = H;
+        ctx.clearRect(0, 0, W, H);
+
+        if (!results.poseLandmarks) { stableFrames.current = 0; return; }
+
+        try {
+          if (typeof drawConnectors !== 'undefined' && typeof POSE_CONNECTIONS !== 'undefined') {
+            drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, { color:'rgba(196,84,42,0.7)', lineWidth:2 });
+            drawLandmarks(ctx, results.poseLandmarks, { color:'#C4542A', lineWidth:1, radius:3 });
+          }
+        } catch(e) {}
+
+        const lms = results.poseLandmarks;
+        const required = [11,12,23,24,27,28];
+        const allVis = required.every(i => lms[i] && lms[i].visibility > 0.5);
+
+        if (allVis) {
+          stableFrames.current++;
+          const prog = Math.min(100, Math.round(stableFrames.current / 60 * 100));
+          setBodyProgress(prog);
+          if (scanStateRef.current !== 'body-measuring') setScanState('body-measuring');
+
+          if (stableFrames.current >= 60) {
+            const lm  = i => ({ x: lms[i].x * W, y: lms[i].y * H });
+            const dst = (a, b) => Math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2);
+            const mid = (a, b) => ({ x:(a.x+b.x)/2, y:(a.y+b.y)/2 });
+            const ls=lm(11), rs=lm(12), lh=lm(23), rh=lm(24), la=lm(27), ra=lm(28);
+            const shoulderPx = dst(ls,rs);
+            const hipPx      = dst(lh,rh);
+            const torsoPx    = dst(mid(ls,rs), mid(lh,rh));
+            const legPx      = dst(mid(lh,rh), mid(la,ra));
+            const pxPerCm    = shoulderPx / 41;
+            const shoulders  = Math.round(shoulderPx / pxPerCm);
+            const hips       = Math.round(hipPx      / pxPerCm);
+            const torso      = Math.round(torsoPx    / pxPerCm);
+            const legs       = Math.round(legPx      / pxPerCm);
+            const height     = Math.round(torso + legs + 26);
+            const recSize    = shoulders<38?'XS':shoulders<40?'S':shoulders<42?'M':shoulders<44?'L':'XL';
+            const diff       = shoulders - hips;
+            const bodyShape  = Math.abs(diff)<5 ? 'Rectangle' : diff>=5 ? 'Inverted Triangle' : (hips-shoulders>=5 ? 'Pear' : 'Rectangle');
+            const fp = { shoulders, hips, torso, height, recommendedSize:recSize, bodyShape, scanMethod:'camera' };
+            bodyResultsRef.current = fp;
+            setBodyData(fp);
+            setScanState('body-done');
+          }
+        } else {
+          if (stableFrames.current > 0) { stableFrames.current = 0; setBodyProgress(0); }
+          if (scanStateRef.current !== 'body-align') setScanState('body-align');
+        }
+      }
+
+      /* ---- Face mesh results handler ---- */
+      function handleFaceMeshResults(results) {
+        if (!canvasRef.current || !videoRef.current) return;
+        if (scanStateRef.current !== 'color-scan') return;
+
+        const canvas = canvasRef.current;
+        const ctx    = canvas.getContext('2d');
+        const W = videoRef.current.videoWidth  || 640;
+        const H = videoRef.current.videoHeight || 480;
+        if (canvas.width !== W)  canvas.width  = W;
+        if (canvas.height !== H) canvas.height = H;
+        ctx.clearRect(0, 0, W, H);
+
+        const lms = results.multiFaceLandmarks && results.multiFaceLandmarks[0];
+        if (!lms) return;
+
+        try {
+          if (typeof drawConnectors !== 'undefined') {
+            if (typeof FACEMESH_TESSELATION !== 'undefined')
+              drawConnectors(ctx, lms, FACEMESH_TESSELATION, { color:'rgba(196,84,42,0.1)', lineWidth:0.5 });
+            if (typeof FACEMESH_FACE_OVAL !== 'undefined')
+              drawConnectors(ctx, lms, FACEMESH_FACE_OVAL,   { color:'rgba(196,84,42,0.55)', lineWidth:2 });
+          }
+        } catch(e) {}
+
+        colorFrames.current++;
+        if (colorFrames.current < 30 || colorResultsRef.current) return;
+
+        try {
+          const tmp = document.createElement('canvas');
+          tmp.width = W; tmp.height = H;
+          const tc = tmp.getContext('2d');
+          tc.drawImage(videoRef.current, 0, 0, W, H);
+
+          const idxs = [116,123,147,9,10,151,50,205];
+          let totalR=0, totalG=0, totalB=0, count=0;
+          idxs.forEach(idx => {
+            if (!lms[idx]) return;
+            const px = Math.floor(lms[idx].x * W);
+            const py = Math.floor(lms[idx].y * H);
+            for (let dy=-3; dy<=3; dy++) for (let dx=-3; dx<=3; dx++) {
+              const x = Math.max(0, Math.min(W-1, px+dx));
+              const y = Math.max(0, Math.min(H-1, py+dy));
+              const d = tc.getImageData(x, y, 1, 1).data;
+              totalR += d[0]; totalG += d[1]; totalB += d[2]; count++;
+            }
+          });
+
+          if (count > 0) {
+            const lab = rgbToLab(totalR/count, totalG/count, totalB/count);
+            const cp  = mapToColorSeason(lab);
+            cp.analysisMethod = 'camera';
+            colorResultsRef.current = cp;
+            setScanState('color-done');
+          }
+        } catch(e) { /* getImageData may fail on some browsers; fallback handled by timeout */ }
+      }
+
+      /* ---- Main async effect (re-runs on retry) ---- */
+      useEffect(() => {
+        activeRef.current = true;
+
+        async function run() {
+          /* 1 — Camera */
+          setScanState('cam-init');
+          if (!navigator.mediaDevices?.getUserMedia) {
+            setCameraError('Camera requires HTTPS. Open the Netlify URL in Chrome — not the local file.');
+            setScanState('manual-body');
+            return;
+          }
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode:'user', width:{ ideal:640 }, height:{ ideal:480 } }
+            });
+            streamRef.current = stream;
+            videoRef.current.srcObject = stream;
+            await videoRef.current.play();
+          } catch(e) {
+            const msg = e.name === 'NotAllowedError'
+              ? 'Camera blocked — click the camera icon in your browser address bar and allow access, then tap "Try camera again".'
+              : e.name === 'NotFoundError'
+              ? 'No camera found on this device.'
+              : e.name === 'NotReadableError'
+              ? 'Camera is in use by another app — close it and tap "Try camera again".'
+              : 'Camera unavailable — make sure you opened the Netlify HTTPS link in Chrome.';
+            setCameraError(msg);
+            setScanState('manual-body');
+            return;
+          }
+
+          /* 2 — MediaPipe Pose */
+          setScanState('pose-init');
+          if (typeof Pose === 'undefined') {
+            setCameraError('Body detection library failed to load — using manual entry.');
+            setScanState('manual-body');
+            return;
+          }
+          try {
+            const pose = new Pose({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${f}` });
+            pose.setOptions({ modelComplexity:0, smoothLandmarks:true, minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
+            pose.onResults(handlePoseResults);
+            const poseTimeout = new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('timeout')), 20000)
+            );
+            await Promise.race([pose.initialize(), poseTimeout]);
+            poseModelRef.current = pose;
+          } catch(e) {
+            const msg = e.message === 'timeout'
+              ? 'Body detection took too long to load. Using manual entry.'
+              : 'Body detection failed to initialize — using manual entry.';
+            setCameraError(msg);
+            setScanState('manual-body');
+            return;
+          }
+
+          setScanState('body-align');
+
+          const bodyTimeout = setTimeout(() => {
+            if (scanStateRef.current === 'body-align') {
+              setCameraError('Full body not detected in 15s — make sure you are 1–2m from the camera and fully in frame.');
+              setScanState('manual-body');
+            }
+          }, 15000);
+
+          /* 3 — Body scan frame loop */
+          while (activeRef.current &&
+                (scanStateRef.current === 'body-align' || scanStateRef.current === 'body-measuring')) {
+            if (videoRef.current && videoRef.current.readyState >= 2 && poseModelRef.current) {
+              try { await poseModelRef.current.send({ image: videoRef.current }); } catch(e) {}
+            } else {
+              await new Promise(r => requestAnimationFrame(r));
+            }
+          }
+          clearTimeout(bodyTimeout);
+          try { poseModelRef.current && poseModelRef.current.close(); } catch(e) {}
+          if (!activeRef.current || scanStateRef.current !== 'body-done') return;
+
+          /* Pause to let user see results */
+          await new Promise(r => setTimeout(r, 1100));
+          if (!activeRef.current) return;
+
+          /* 4 — MediaPipe Face Mesh */
+          setScanState('color-init');
+          if (typeof FaceMesh === 'undefined') { setScanState('undertone-pick'); return; }
+          try {
+            const fm = new FaceMesh({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${f}` });
+            fm.setOptions({ maxNumFaces:1, refineLandmarks:false, minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
+            fm.onResults(handleFaceMeshResults);
+            const fmTimeout = new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('timeout')), 15000)
+            );
+            await Promise.race([fm.initialize(), fmTimeout]);
+            faceMeshRef.current = fm;
+          } catch(e) { setScanState('undertone-pick'); return; }
+
+          colorFrames.current = 0;
+          setScanState('color-scan');
+
+          const colorTimeout = setTimeout(() => {
+            if (scanStateRef.current === 'color-scan') setScanState('undertone-pick');
+          }, 12000);
+
+          /* 5 — Color scan frame loop */
+          while (activeRef.current && scanStateRef.current === 'color-scan') {
+            if (videoRef.current && videoRef.current.readyState >= 2 && faceMeshRef.current) {
+              try { await faceMeshRef.current.send({ image: videoRef.current }); } catch(e) {}
+            } else {
+              await new Promise(r => requestAnimationFrame(r));
+            }
+          }
+          clearTimeout(colorTimeout);
+          try { faceMeshRef.current && faceMeshRef.current.close(); } catch(e) {}
+
+          if (!activeRef.current) return;
+
+          if (scanStateRef.current === 'color-done' && colorResultsRef.current) {
+            onComplete(bodyResultsRef.current, colorResultsRef.current);
+          }
+          /* if undertone-pick, user completes via button */
+        }
+
+        run().catch(err => {
+          console.warn('ScanScreen run() error:', err);
+          setCameraError('Scan encountered an error — please use manual entry.');
+          setScanState('manual-body');
+        });
+
+        return () => {
+          activeRef.current = false;
+          try { poseModelRef.current && poseModelRef.current.close(); } catch(e) {}
+          try { faceMeshRef.current && faceMeshRef.current.close(); } catch(e) {}
+          streamRef.current && streamRef.current.getTracks().forEach(t => t.stop());
+        };
+      }, [retryKey]);
+
+      /* ---- Manual body fallback ---- */
+      function handleManualSubmit() {
+        const h  = parseFloat(manualData.height)    || 165;
+        const s  = parseFloat(manualData.shoulders) || 41;
+        const hi = parseFloat(manualData.hips)      || 95;
+        const recSize   = s<38?'XS':s<40?'S':s<42?'M':s<44?'L':'XL';
+        const diff      = s - hi;
+        const bodyShape = Math.abs(diff)<5?'Rectangle':diff>=5?'Inverted Triangle':hi-s>=5?'Pear':'Rectangle';
+        const fp = { shoulders:s, hips:hi, torso:Math.round(h*0.32), height:h, recommendedSize:recSize, bodyShape, scanMethod:'manual' };
+        bodyResultsRef.current = fp;
+        setBodyData(fp);
+        setScanState('undertone-pick');
+      }
+
+      /* ---- Undertone fallback ---- */
+      function handleUndertoneSelect(u) { setUndertone(u); }
+      function handleUndertoneContinue() {
+        if (!undertone) return;
+        const cp = undertoneToColorProfile(undertone, 'neutral');
+        colorResultsRef.current = cp;
+        onComplete(bodyResultsRef.current, cp);
+      }
+
+      /* ---- Derived display values ---- */
+      const showCamera  = ['body-align','body-measuring','body-done','color-init','color-scan'].includes(scanState);
+      const headerLabel = ['body-align','body-measuring','body-done','pose-init','cam-init'].includes(scanState) ? 'Body Scan' : 'Color Analysis';
+      const statusLabels = {
+        'cam-init':'Requesting camera…', 'pose-init':'Loading body detection…',
+        'body-align':'Stand back — full body in frame', 'body-measuring':'Hold still — measuring…',
+        'body-done':'Body scan complete', 'color-init':'Loading color analysis…',
+        'color-scan':'Look directly at the camera',
+      };
+
+      return (
+        <div className="screen scan-screen">
+          <header className="ext-header" style={{background:'#1a1a1a',borderColor:'rgba(255,255,255,0.08)'}}>
+            <span className="ext-logo" style={{color:'#fff'}}>esl<span style={{color:C.accent}}>ucent</span></span>
+            <span style={{fontSize:'11px',color:'#888',letterSpacing:'0.08em',textTransform:'uppercase'}}>{headerLabel}</span>
+          </header>
+
+          {/* Loading states shown before camera is live */}
+          {['cam-init','pose-init'].includes(scanState) && (
+            <div className="scan-placeholder">
+              <div className="loading-spinner" style={{width:'28px',height:'28px',margin:'0 auto 10px'}} />
+              <div className="scan-placeholder-title" style={{fontSize:'12px'}}>{statusLabels[scanState]}</div>
+            </div>
+          )}
+
+          {/* ---- Camera area — always mounted so videoRef is never null ---- */}
+          <div className="scan-camera-area" style={{display: showCamera ? 'block' : 'none'}}>
+            <video ref={videoRef} autoPlay playsInline muted style={{display:'block',width:'100%',height:'100%',objectFit:'cover'}} />
+            <canvas ref={canvasRef} style={{position:'absolute',inset:0,width:'100%',height:'100%'}} />
+            <div className="corner-bracket tl" style={{zIndex:3}} />
+            <div className="corner-bracket tr" style={{zIndex:3}} />
+            <div className="corner-bracket bl" style={{zIndex:3}} />
+            <div className="corner-bracket br" style={{zIndex:3}} />
+            {scanState === 'body-align' && (
+              <div className="scan-overlay-label">Stand back — full body in frame</div>
+            )}
+            {scanState === 'color-scan' && (
+              <div className="scan-overlay-label">Look directly at the camera</div>
+            )}
+            {scanState === 'body-measuring' && (
+              <div className="scan-measuring-bar">
+                <div className="scan-measuring-bar-label">Hold still — measuring…</div>
+                <div className="scan-measuring-bar-track">
+                  <div className="scan-measuring-bar-fill" style={{width:`${bodyProgress}%`}} />
+                </div>
+              </div>
+            )}
+            {scanState === 'color-init' && (
+              <div className="scan-init-overlay">
+                <div className="loading-spinner" style={{width:'26px',height:'26px'}} />
+                <div className="scan-init-text">{statusLabels['color-init']}</div>
+              </div>
+            )}
+          </div>
+
+          {/* Placeholder shown when camera is not active */}
+          {!showCamera && scanState === 'manual-body' && (
+            <div className="scan-placeholder">
+              <div className="scan-placeholder-icon">📐</div>
+              <div className="scan-placeholder-title">Enter Measurements</div>
+              <div className="scan-placeholder-sub">Enter your measurements below for a precise size recommendation.</div>
+            </div>
+          )}
+          {!showCamera && scanState === 'undertone-pick' && (
+            <div className="scan-placeholder" style={{height:'180px'}}>
+              <div className="scan-placeholder-icon">🎨</div>
+              <div className="scan-placeholder-title">Identify Your Color Season</div>
+              <div className="scan-placeholder-sub">Select the undertone that best describes your complexion.</div>
+            </div>
+          )}
+
+          {/* ---- Info panel ---- */}
+          <div className="scan-info-panel">
+
+            {/* Body scanning */}
+            {(scanState === 'body-align' || scanState === 'body-measuring') && (
+              <>
+                <div className="scan-status">
+                  <div className="scan-status-dot" />
+                  <span className="scan-status-text">{statusLabels[scanState]}</span>
+                </div>
+                <div className="scan-measurements" style={{gridTemplateColumns:'repeat(2,1fr)'}}>
+                  {[{k:'shoulders',l:'Shoulders'},{k:'hips',l:'Hips'},{k:'torso',l:'Torso'},{k:'height',l:'Est. Height'}].map(({k,l}) => (
+                    <div key={k} className={`scan-meas-item${bodyData?.[k]?' active':''}`}>
+                      <div className="scan-meas-value">
+                        {bodyData?.[k]
+                          ? <>{bodyData[k]}<span style={{fontSize:'11px',color:C.secondary,marginLeft:'1px'}}>cm</span></>
+                          : <div className="scan-meas-loading" />}
+                      </div>
+                      <div className="scan-meas-label">{l}</div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Body done */}
+            {scanState === 'body-done' && bodyData && (
+              <>
+                <div className="scan-status">
+                  <span style={{fontSize:'16px'}}>✅</span>
+                  <span className="scan-status-text">Body scan complete</span>
+                </div>
+                <div className="scan-result-card">
+                  <div className="scan-result-eyebrow">Your Recommended Size</div>
+                  <div className="scan-result-size">{bodyData.recommendedSize}</div>
+                  <div className="scan-result-sub">{bodyData.bodyShape} frame · {bodyData.shoulders}cm shoulders · {bodyData.hips}cm hips</div>
+                </div>
+                <div style={{fontSize:'12px',color:C.muted,textAlign:'center'}}>Analyzing your color profile next…</div>
+              </>
+            )}
+
+            {/* Color scanning */}
+            {scanState === 'color-init' && (
+              <div style={{textAlign:'center',padding:'16px 0',color:C.secondary,fontSize:'13px'}}>Loading color analysis…</div>
+            )}
+            {(scanState === 'cam-init' || scanState === 'pose-init') && (
+              <div style={{textAlign:'center',padding:'8px 0'}}>
+                <button
+                  className="btn-ghost"
+                  style={{fontSize:'11px',padding:'7px 16px'}}
+                  onClick={() => { setCameraError(''); setScanState('manual-body'); }}
+                >
+                  Skip — enter measurements manually
+                </button>
+              </div>
+            )}
+            {scanState === 'color-scan' && (
+              <>
+                <div className="scan-status">
+                  <div className="scan-status-dot" />
+                  <span className="scan-status-text">Analyzing skin tone and color profile…</span>
+                </div>
+                <div style={{background:C.card,borderRadius:'8px',padding:'14px',textAlign:'center',fontSize:'12px',color:C.secondary,lineHeight:1.6}}>
+                  Hold your face steady in the frame. We're sampling your skin tone to determine your color season.
+                </div>
+              </>
+            )}
+
+            {/* Manual body form */}
+            {scanState === 'manual-body' && (
+              <div className="manual-input-wrap">
+                {cameraError && (
+                  <div style={{
+                    background:'rgba(196,84,42,0.08)',
+                    border:'1px solid rgba(196,84,42,0.2)',
+                    borderRadius:'6px', padding:'10px 12px',
+                    fontSize:'11px', color:C.accent, lineHeight:1.5,
+                    marginBottom:'10px',
+                  }}>
+                    {cameraError}
+                  </div>
+                )}
+                {cameraError && (cameraError.includes('allow') || cameraError.includes('in use')) && (
+                  <button
+                    className="btn-ghost"
+                    style={{width:'100%',marginBottom:'12px',fontSize:'11px'}}
+                    onClick={() => { setCameraError(''); setRetryKey(k => k + 1); }}
+                  >
+                    ↺ Try camera again
+                  </button>
+                )}
+                {!cameraError && (
+                  <div style={{fontSize:'11px',color:C.muted,marginBottom:'12px',lineHeight:1.5}}>
+                    Enter your measurements to calculate your fit profile.
+                  </div>
+                )}
+                {[
+                  {k:'height',    label:'Height (cm)',         placeholder:'e.g. 165'},
+                  {k:'shoulders', label:'Shoulder Width (cm)', placeholder:'e.g. 41'},
+                  {k:'hips',      label:'Hip Width (cm)',       placeholder:'e.g. 95'},
+                ].map(({k,label,placeholder}) => (
+                  <div key={k} className="manual-input-row">
+                    <label className="manual-input-label">{label}</label>
+                    <input
+                      type="number" placeholder={placeholder}
+                      value={manualData[k]}
+                      onChange={e => setManualData(prev => ({...prev,[k]:e.target.value}))}
+                      className="manual-input-field"
+                    />
+                  </div>
+                ))}
+                <button className="btn-primary" onClick={handleManualSubmit} style={{marginTop:'4px'}}>
+                  Calculate My Size →
+                </button>
+              </div>
+            )}
+
+            {/* Undertone picker */}
+            {scanState === 'undertone-pick' && (
+              <>
+                <div style={{fontSize:'10px',letterSpacing:'0.12em',textTransform:'uppercase',color:C.accent,fontWeight:'500',marginBottom:'12px'}}>
+                  What best describes your skin?
+                </div>
+                <div className="undertone-grid">
+                  {[
+                    {id:'warm',    label:'Warm',    desc:'Golden or peachy', swatch:'#D4956A'},
+                    {id:'cool',    label:'Cool',    desc:'Pink or bluish',   swatch:'#9BB7D4'},
+                    {id:'neutral', label:'Neutral', desc:'Mix of both',      swatch:'#C4A882'},
+                  ].map(u => (
+                    <div
+                      key={u.id}
+                      className={`undertone-card${undertone===u.id?' selected':''}`}
+                      onClick={() => handleUndertoneSelect(u.id)}
+                    >
+                      <div className="undertone-swatch" style={{background:u.swatch}} />
+                      <div className="undertone-label">{u.label}</div>
+                      <div className="undertone-desc">{u.desc}</div>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  className="btn-primary"
+                  onClick={handleUndertoneContinue}
+                  disabled={!undertone}
+                  style={{opacity:undertone?1:0.45, cursor:undertone?'pointer':'default'}}
+                >
+                  See My Color Profile →
+                </button>
+              </>
+            )}
+
+            {scanState === 'cam-init' && (
+              <div style={{textAlign:'center',padding:'20px 0',color:C.secondary,fontSize:'13px'}}>Requesting camera access…</div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    /* ========================================================
+       QUIZ SCREEN
+    ======================================================== */
+    function seasonToColorAffinity(season) {
+      if (!season) return null;
+      if (['Bright Winter'].includes(season)) return 'bold';
+      if (['True Summer','Cool Summer','Light Summer','True Winter','Deep Winter'].includes(season)) return 'cool';
+      if (['Soft Autumn'].includes(season)) return 'neutral';
+      return 'warm';
+    }
+
+    function QuizScreen({ onComplete, colorProfile }) {
+      const detectedSeason = colorProfile?.season;
+      const derivedAffinity = seasonToColorAffinity(detectedSeason);
+      const startIndex = detectedSeason ? 1 : 0;
+
+      const [qIndex, setQIndex] = useState(startIndex);
+      const [answers, setAnswers] = useState(() =>
+        derivedAffinity ? { 1: derivedAffinity } : {}
+      );
+      const q = QUIZ_QUESTIONS[qIndex];
+      const progress = (qIndex / QUIZ_QUESTIONS.length) * 100;
+      const selected = answers[q.id];
+
+      function select(optionId) {
+        setAnswers(prev => ({ ...prev, [q.id]: optionId }));
+      }
+
+      function next() {
+        if (!selected) return;
+        if (qIndex < QUIZ_QUESTIONS.length - 1) {
+          setQIndex(i => i + 1);
+        } else {
+          onComplete({
+            colorAffinity:   answers[1],
+            fitPreference:   answers[2],
+            lifestyle:       answers[3],
+            material:        answers[4],
+            archetype:       answers[5],
+          });
+        }
+      }
+
+      function back() {
+        if (qIndex > 0) setQIndex(i => i - 1);
+      }
+
+      return (
+        <div className="screen quiz-screen">
+          <header className="ext-header">
+            <span className="ext-logo">esl<span style={{color:C.accent}}>ucent</span></span>
+            <div className="ext-header-actions">
+              {qIndex > 0 && (
+                <button className="btn-ghost" onClick={back} style={{padding:'6px 12px',fontSize:'12px'}}>← Back</button>
+              )}
+            </div>
+          </header>
+
+          {detectedSeason && (
+            <div style={{
+              display:'flex',alignItems:'center',gap:'8px',
+              padding:'8px 20px',
+              background:'rgba(196,84,42,0.07)',
+              borderBottom:'1px solid rgba(196,84,42,0.12)',
+              fontSize:'11px',color:C.secondary,
+            }}>
+              <div style={{width:'8px',height:'8px',borderRadius:'50%',background:colorProfile?.bestColors?.[0]||C.accent,flexShrink:0}} />
+              <span>Color season detected from scan: <strong style={{color:C.accent}}>{detectedSeason}</strong></span>
+            </div>
+          )}
+          <div className="progress-label">
+            <span>{q.category}</span>
+            <span>{qIndex + 1} of {QUIZ_QUESTIONS.length}</span>
+          </div>
+          <div className="progress-track">
+            <div className="progress-fill" style={{width: `${progress + (100/QUIZ_QUESTIONS.length)}%`}} />
+          </div>
+
+          <div className="quiz-body">
+            <div className="quiz-q-number">Question {qIndex + 1}</div>
+            <h2 className="quiz-q-title">{q.title}</h2>
+            <p className="quiz-q-subtitle">{q.subtitle}</p>
+
+            <div className={`quiz-options${['color','archetype'].includes(q.type) ? '' : ' grid-2'}`}>
+              {q.options.map(opt => (
+                <div
+                  key={opt.id}
+                  className={`quiz-option${selected === opt.id ? ' selected' : ''}`}
+                  onClick={() => select(opt.id)}
+                >
+                  {q.type === 'color' && (
+                    <>
+                      <div className="quiz-option-label">{opt.label}</div>
+                      <div className="quiz-option-desc">{opt.desc}</div>
+                      <div className="color-swatches">
+                        {opt.swatches.map((s,i) => (
+                          <div key={i} className="color-swatch" style={{background: s}} />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {q.type === 'silhouette' && (
+                    <>
+                      <div className="quiz-option-icon">{opt.icon}</div>
+                      <div className="quiz-option-label">{opt.label}</div>
+                      <div className="quiz-option-desc">{opt.desc}</div>
+                    </>
+                  )}
+                  {q.type === 'lifestyle' && (
+                    <>
+                      <div className="quiz-option-icon">{opt.icon}</div>
+                      <div className="quiz-option-label">{opt.label}</div>
+                      <div className="quiz-option-desc">{opt.desc}</div>
+                    </>
+                  )}
+                  {q.type === 'material' && (
+                    <>
+                      <div className="texture-preview" style={{background: opt.bg}} />
+                      <div className="quiz-option-label">{opt.label}</div>
+                      <div className="quiz-option-desc" style={{fontSize:'11px'}}>{opt.desc}</div>
+                    </>
+                  )}
+                  {q.type === 'archetype' && (
+                    <>
+                      <img className="mood-image" src={opt.img} alt={opt.label} loading="lazy" />
+                      <div className="quiz-option-label">{opt.label}</div>
+                      <div className="quiz-option-desc">{opt.desc}</div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="quiz-footer">
+            <button
+              className="btn-primary"
+              onClick={next}
+              disabled={!selected}
+              style={{opacity: selected ? 1 : 0.45, cursor: selected ? 'pointer' : 'default'}}
+            >
+              {qIndex < QUIZ_QUESTIONS.length - 1 ? 'Continue →' : 'See My Profile →'}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    /* ========================================================
+       PROFILE CARD SCREEN
+    ======================================================== */
+    /* ========================================================
+       BODY SHAPE SVG + PROFILE CARD — 4-section redesign
+    ======================================================== */
+    function BodyShapeSVG({ shape }) {
+      const shapes = {
+        'Rectangle':         'M28,12 L72,12 L72,88 L28,88 Z',
+        'Pear':              'M34,12 L66,12 L76,88 L24,88 Z',
+        'Inverted Triangle': 'M20,12 L80,12 L66,88 L34,88 Z',
+        'Hourglass':         'M28,12 L72,12 L60,50 L72,88 L28,88 L40,50 Z',
+      };
+      const d = shapes[shape] || shapes['Rectangle'];
+      return (
+        <svg viewBox="0 0 100 100" width="52" height="52" style={{display:'block',flexShrink:0}}>
+          <path d={d} fill="rgba(196,84,42,0.18)" stroke="rgba(196,84,42,0.6)" strokeWidth="2.5" strokeLinejoin="round"/>
+        </svg>
+      );
+    }
+
+    function ProfileCard({ profile, onContinue, onSave, onRetake }) {
+      const [saved, setSaved] = useState(false);
+      const { fitProfile, colorProfile, styleProfile, recommendations } = profile || {};
+
+      const season    = colorProfile?.season    || '—';
+      const undertone = colorProfile?.undertone || '—';
+      const bestColors  = colorProfile?.bestColors  || [];
+      const avoidColors = colorProfile?.avoidColors || [];
+      const bodyShape = fitProfile?.bodyShape       || 'Rectangle';
+      const recSize   = fitProfile?.recommendedSize || '—';
+      const archetype = styleProfile?.archetype
+        ? styleProfile.archetype.charAt(0).toUpperCase() + styleProfile.archetype.slice(1)
+        : '—';
+      const capsule = (recommendations?.capsuleEssentials || []).slice(0, 3);
+
+      const fitLabels  = { oversized:'Oversized', relaxed:'Relaxed', fitted:'Fitted', tailored:'Tailored' };
+      const lifeLabels = { casual:'Casual', professional:'Professional', evening:'Evening', active:'Active' };
+      const matLabels  = { soft:'Soft & Fluid', structured:'Structured', lightweight:'Lightweight', textured:'Textured' };
+
+      const seasonDesc = season !== '—' ? `${season.toLowerCase()} tones` : 'your seasonal palette';
+      const summary = [
+        `As a ${season}, your ${undertone}-toned complexion thrives in ${seasonDesc}.`,
+        `Your ${bodyShape} build suits ${fitLabels[styleProfile?.fitPreference] || 'well-proportioned'} silhouettes`,
+        `in ${matLabels[styleProfile?.material] || 'quality'} fabrics.`,
+        `A ${archetype} at heart — look for clean, intentional pieces that reflect your palette.`,
+      ].join(' ');
+
+      function handleSave() {
+        if (onSave) onSave(profile);
+        setSaved(true);
+      }
+
+      function handleSaveAndContinue() {
+        if (!saved && onSave) onSave(profile);
+        onContinue();
+      }
+
+      return (
+        <div className="screen profile-screen" style={{overflowY:'auto'}}>
+          <header className="ext-header">
+            <span className="ext-logo">esl<span style={{color:C.accent}}>ucent</span></span>
+            <button className="btn-ghost" onClick={onRetake} style={{fontSize:'11px',padding:'6px 10px'}}>
+              Retake
+            </button>
+          </header>
+
+          <div className="profile-hero" style={{paddingBottom:'14px'}}>
+            <div className="profile-eyebrow">Your Eslucent Profile</div>
+            <div className="profile-name-label">{archetype} · {season}</div>
+          </div>
+
+          {/* Section 1 — Fit Profile */}
+          <div className="profile-section">
+            <div className="profile-section-eyebrow">Fit Profile</div>
+            <div className="body-shape-row">
+              <BodyShapeSVG shape={bodyShape} />
+              <div>
+                <div className="body-shape-name">{bodyShape}</div>
+                <div style={{fontSize:'11px',color:C.muted,marginBottom:'4px'}}>Recommended size</div>
+                <span className="body-shape-size-badge">{recSize}</span>
+              </div>
+            </div>
+            <div className="meas-grid-4">
+              {[
+                { k:'shoulders', label:'Shoulders' },
+                { k:'hips',      label:'Hips'      },
+                { k:'torso',     label:'Torso'     },
+                { k:'height',    label:'Height'    },
+              ].map(({ k, label }) => (
+                <div key={k} className="meas-cell">
+                  <div className="meas-cell-val">
+                    {fitProfile?.[k] ?? '—'}
+                    <span className="meas-cell-unit">{fitProfile?.[k] ? 'cm' : ''}</span>
+                  </div>
+                  <div className="meas-cell-key">{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Section 2 — Color Profile */}
+          <div className="profile-section">
+            <div className="profile-section-eyebrow">Color Profile</div>
+            <div style={{display:'flex',alignItems:'center',gap:'10px',marginBottom:'12px'}}>
+              {bestColors[0] && (
+                <div style={{width:'12px',height:'12px',borderRadius:'50%',background:bestColors[0],flexShrink:0}} />
+              )}
+              <span style={{fontWeight:700,fontSize:'14px',color:C.text}}>{season}</span>
+              <span style={{fontSize:'11px',color:C.secondary}}>· {undertone} undertone</span>
+            </div>
+            {bestColors.length > 0 && (
+              <>
+                <div className="palette-row-label">Wear</div>
+                <div className="palette-swatches">
+                  {bestColors.map((hex, i) => (
+                    <div key={i} className="palette-swatch" style={{background:hex}} title={hex} />
+                  ))}
+                </div>
+              </>
+            )}
+            {avoidColors.length > 0 && (
+              <>
+                <div className="palette-row-label" style={{marginTop:'6px'}}>Avoid</div>
+                <div className="palette-swatches">
+                  {avoidColors.map((hex, i) => (
+                    <div key={i} className="palette-swatch avoid" style={{background:hex}} title={hex} />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Section 3 — Style Profile */}
+          <div className="profile-section">
+            <div className="profile-section-eyebrow">Style Profile</div>
+            <div className="style-tags-pills">
+              {[
+                archetype,
+                fitLabels[styleProfile?.fitPreference],
+                lifeLabels[styleProfile?.lifestyle],
+                matLabels[styleProfile?.material],
+              ].filter(Boolean).map((tag, i) => (
+                <span key={i} className="style-pill">{tag}</span>
+              ))}
+            </div>
+            {capsule.length > 0 && (
+              <ul className="capsule-list">
+                {capsule.map((item, i) => (
+                  <li key={i} className="capsule-item">
+                    <div className="capsule-dot" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Section 4 — Shopping Summary */}
+          <div className="profile-section">
+            <div className="profile-section-eyebrow">Shopping Summary</div>
+            <div className="shopping-summary-text">{summary}</div>
+          </div>
+
+          <div className="profile-actions">
+            <button className="btn-primary" onClick={handleSaveAndContinue}>
+              {saved ? 'See Matched Products →' : 'Save & See Products →'}
+            </button>
+            {!saved && (
+              <button
+                className="btn-ghost"
+                onClick={onContinue}
+                style={{width:'100%',textAlign:'center'}}
+              >
+                Skip saving →
+              </button>
+            )}
+            <div className="profile-save-note" style={{textAlign:'center'}}>
+              {saved
+                ? 'Profile saved — available across all brands.'
+                : 'Profile will be saved locally. Never shared without consent.'
+              }
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ========================================================
+       STORE PLACEHOLDER BACKGROUND
+    ======================================================== */
+    function StorePlaceholderBg() {
+      return (
+        <div style={{pointerEvents:'none'}}>
+          <div style={{
+            background:'#fff', height:'52px', borderBottom:'1px solid #eee',
+            display:'flex', alignItems:'center', padding:'0 24px', gap:'20px',
+          }}>
+            <div style={{width:'60px',height:'16px',background:'#1A1A1A',borderRadius:'2px'}} />
+            <div style={{display:'flex',gap:'20px',marginLeft:'12px'}}>
+              {['Women','Men','Home','Beauty'].map(n => (
+                <div key={n} style={{width:'40px',height:'10px',background:'#ddd',borderRadius:'2px'}} />
+              ))}
+            </div>
+          </div>
+          <div style={{padding:'20px 24px',display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'16px',background:'#F8F5F2'}}>
+            {Array.from({length:9}).map((_,i) => (
+              <div key={i} style={{
+                background:`hsl(${30+i*8},${18+i*3}%,${89-i*2}%)`,
+                borderRadius:'4px', aspectRatio:'3/4',
+              }} />
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    /* ========================================================
+       ESLUCENT TOOLBAR
+    ======================================================== */
+    function EslucentToolbar({ season, archetype, onEditProfile, onViewDashboard }) {
+      return (
+        <div className="eslucent-toolbar">
+          <span className="eslucent-toolbar-logo">esl<span>ucent</span></span>
+          <div className="eslucent-toolbar-sep" />
+          <span className="eslucent-toolbar-profile">
+            Personalized for <strong>{season}</strong> · <strong>{archetype}</strong>
+          </span>
+          <button className="eslucent-toolbar-btn" onClick={onViewDashboard}>
+            Brand Intel
+          </button>
+          <button className="eslucent-toolbar-btn primary" onClick={onEditProfile}>
+            Edit Profile
+          </button>
+        </div>
+      );
+    }
+
+    /* ========================================================
+       ESLUCENT FILTER BAR
+    ======================================================== */
+    function EslucentFilterBar({ sortMode, onSortChange, priceRange, onPriceRangeChange, mySizeOnly, onMySizeToggle, myColorSeasonOnly, onColorSeasonToggle }) {
+      return (
+        <div className="eslucent-filter-bar">
+          <select className="filter-select" value={sortMode} onChange={e => onSortChange(e.target.value)}>
+            <option value="best">Showing: Best matches first</option>
+            <option value="default">Default order</option>
+            <option value="price-low">Price: Low to High</option>
+            <option value="price-high">Price: High to Low</option>
+          </select>
+          <select className="filter-select" value={priceRange} onChange={e => onPriceRangeChange(e.target.value)}>
+            <option value="all">All prices</option>
+            <option value="under100">Under $100</option>
+            <option value="100-200">$100–$200</option>
+            <option value="over200">$200+</option>
+          </select>
+          <div className={`filter-toggle${mySizeOnly ? ' active' : ''}`} onClick={onMySizeToggle}>
+            <div className="filter-toggle-dot" />
+            My size only
+          </div>
+          <div className={`filter-toggle${myColorSeasonOnly ? ' active' : ''}`} onClick={onColorSeasonToggle}>
+            <div className="filter-toggle-dot" />
+            My color season
+          </div>
+        </div>
+      );
+    }
+
+    /* ========================================================
+       STORE PRODUCT CARD
+    ======================================================== */
+    function StoreProductCard({ product, overlayActive, onClick }) {
+      const isHigh = overlayActive && product.matchScore >= 85;
+      const isLow  = overlayActive && product.matchScore < 60;
+      return (
+        <div
+          className={`store-product-card${isHigh ? ' high-match' : ''}${isLow ? ' low-match' : ''}`}
+          onClick={onClick}
+        >
+          <div className="store-product-image">
+            <img src={product.img} alt={product.name} loading="lazy" />
+            {overlayActive && isLow && (
+              <div className="store-low-match-overlay">
+                <div className="store-low-match-badge">Low match</div>
+              </div>
+            )}
+            {overlayActive && !isLow && (
+              <div className="store-match-badge">{product.matchScore}% match</div>
+            )}
+            {product.orig && <div className="store-sale-badge-img">SALE</div>}
+          </div>
+          <div className="store-product-info">
+            <div className="store-product-name">{product.name}</div>
+            <div className="store-product-brand" style={{color:'#8B7355',marginTop:'2px'}}>{product.brand}</div>
+            <div className="store-product-price-row" style={{marginTop:'5px'}}>
+              <div className="store-product-price">${product.price}</div>
+              {product.orig && <div className="store-product-price-orig">${product.orig}</div>}
+            </div>
+            <div className="style-tags-row">
+              {product.tags.map(t => <span key={t} className="style-tag-pill">{t}</span>)}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ========================================================
+       PRODUCT TOOLTIP
+    ======================================================== */
+    function ProductTooltip({ product, profile, position }) {
+      const season = deriveColorSeason(
+        profile?.tasteProfile?.colorAffinity,
+        profile?.tasteProfile?.material
+      );
+      const recSize = recommendSize(profile?.fitProfile, product.sizes);
+      const archetype = profile?.tasteProfile?.archetype || 'style';
+
+      const left = Math.max(8, Math.min(position.x - 119, window.innerWidth - 250));
+      const top  = Math.max(8, position.y - 175);
+
+      return (
+        <div className="product-tooltip" style={{left, top}}>
+          <div className="tooltip-score">{product.matchScore}% match</div>
+          <div className="tooltip-score-label">for your profile</div>
+          <div className="tooltip-row">
+            <span className="tooltip-icon">📐</span>
+            <span>We recommend size {recSize} based on your scan</span>
+          </div>
+          <div className="tooltip-row">
+            <span className="tooltip-icon">🎨</span>
+            <span>This matches your {season} palette</span>
+          </div>
+          <div className="tooltip-row">
+            <span className="tooltip-icon">✦</span>
+            <span>{product.matchScore}% match for your {archetype} style</span>
+          </div>
+        </div>
+      );
+    }
+
+    /* ========================================================
+       FLOATING BADGE
+    ======================================================== */
+    function FloatingBadge({ active, onToggle }) {
+      return (
+        <div
+          className={`floating-eslucent-badge${active ? '' : ' inactive'}`}
+          onClick={onToggle}
+        >
+          <span>✦</span>
+          <span>Eslucent {active ? 'Active' : 'Paused'}</span>
+        </div>
+      );
+    }
+
+    /* ========================================================
+       STORE OVERLAY
+    ======================================================== */
+    function StoreOverlay({ profile, onEditProfile, onViewDashboard }) {
+      const [sortMode, setSortMode] = useState('best');
+      const [priceRange, setPriceRange] = useState('all');
+      const [mySizeOnly, setMySizeOnly] = useState(false);
+      const [myColorSeasonOnly, setMyColorSeasonOnly] = useState(false);
+      const [selectedProduct, setSelectedProduct] = useState(null);
+      const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+      const [overlayActive, setOverlayActive] = useState(true);
+
+      const season = deriveColorSeason(
+        profile?.tasteProfile?.colorAffinity,
+        profile?.tasteProfile?.material
+      );
+      const archetype = profile?.tasteProfile?.archetype
+        ? profile.tasteProfile.archetype.charAt(0).toUpperCase() + profile.tasteProfile.archetype.slice(1)
+        : 'Your Style';
+
+      const scored = PRODUCTS.map(p => ({ ...p, matchScore: computeMatchScore(p, profile) }));
+
+      let displayed = [...scored];
+      if (priceRange === 'under100')  displayed = displayed.filter(p => p.price < 100);
+      if (priceRange === '100-200')   displayed = displayed.filter(p => p.price >= 100 && p.price <= 200);
+      if (priceRange === 'over200')   displayed = displayed.filter(p => p.price > 200);
+      if (overlayActive) {
+        if (sortMode === 'best')       displayed.sort((a, b) => b.matchScore - a.matchScore);
+        if (sortMode === 'price-low')  displayed.sort((a, b) => a.price - b.price);
+        if (sortMode === 'price-high') displayed.sort((a, b) => b.price - a.price);
+      }
+
+      function handleProductClick(product, e) {
+        if (selectedProduct?.id === product.id) { setSelectedProduct(null); return; }
+        const rect = e.currentTarget.getBoundingClientRect();
+        setTooltipPos({ x: rect.left + rect.width / 2, y: rect.top });
+        setSelectedProduct(product);
+      }
+
+      return (
+        <div style={{position:'relative', minHeight:'100%'}}>
+          {/* Store brand header */}
+          <div style={{
+            background:'#fff', borderBottom:'1px solid #eee',
+            padding:'0 24px', height:'52px',
+            display:'flex', alignItems:'center', justifyContent:'space-between',
+          }}>
+            <div style={{fontFamily:"'Playfair Display',serif", fontSize:'18px', fontWeight:'700', letterSpacing:'0.15em', color:'#1A1A1A'}}>
+              ARKET
+            </div>
+            <div style={{display:'flex', gap:'24px'}}>
+              {['Women','Men','Home','Beauty'].map(name => (
+                <div key={name} style={{fontSize:'12px', letterSpacing:'0.08em', textTransform:'uppercase', color:'#666', cursor:'pointer'}}>
+                  {name}
+                </div>
+              ))}
+            </div>
+            <div style={{display:'flex', gap:'14px'}}>
+              {['🔍','♡','🛍'].map((icon,i) => (
+                <div key={i} style={{fontSize:'16px', cursor:'pointer', color:'#444'}}>{icon}</div>
+              ))}
+            </div>
+          </div>
+
+          {/* Eslucent Toolbar */}
+          <EslucentToolbar
+            season={season}
+            archetype={archetype}
+            onEditProfile={onEditProfile}
+            onViewDashboard={onViewDashboard}
+          />
+
+          {/* Filter Bar (only when overlay is active) */}
+          {overlayActive && (
+            <EslucentFilterBar
+              sortMode={sortMode}
+              onSortChange={setSortMode}
+              priceRange={priceRange}
+              onPriceRangeChange={setPriceRange}
+              mySizeOnly={mySizeOnly}
+              onMySizeToggle={() => setMySizeOnly(v => !v)}
+              myColorSeasonOnly={myColorSeasonOnly}
+              onColorSeasonToggle={() => setMyColorSeasonOnly(v => !v)}
+            />
+          )}
+
+          {/* Page title */}
+          <div style={{background:'#F8F5F2', padding:'14px 24px 6px'}}>
+            <div style={{fontSize:'11px', color:'#aaa', marginBottom:'6px', letterSpacing:'0.04em'}}>
+              Women / New Arrivals
+            </div>
+            <div style={{display:'flex', alignItems:'baseline', gap:'10px'}}>
+              <div style={{fontFamily:"'Playfair Display',serif", fontSize:'22px', fontWeight:'700', color:'#1A1A1A'}}>
+                New Arrivals
+              </div>
+              <div style={{fontSize:'13px', color:'#aaa'}}>{displayed.length} products</div>
+            </div>
+          </div>
+
+          {/* Product grid */}
+          <div className="store-product-grid" style={{background:'#F8F5F2'}}>
+            {displayed.map(p => (
+              <StoreProductCard
+                key={p.id}
+                product={p}
+                overlayActive={overlayActive}
+                onClick={(e) => handleProductClick(p, e)}
+              />
+            ))}
+          </div>
+
+          {/* Click-away to dismiss tooltip */}
+          {selectedProduct && (
+            <div style={{position:'fixed', inset:0, zIndex:349}} onClick={() => setSelectedProduct(null)} />
+          )}
+
+          {/* Tooltip */}
+          {selectedProduct && overlayActive && (
+            <ProductTooltip product={selectedProduct} profile={profile} position={tooltipPos} />
+          )}
+
+          {/* Disclaimer footer */}
+          <div style={{
+            padding:'12px 24px 28px',
+            textAlign:'center',
+            fontSize:'11px',
+            fontStyle:'italic',
+            color:'#8B7355',
+            background:'#F8F5F2',
+            borderTop:'1px solid rgba(139,115,85,0.12)',
+          }}>
+            Product data shown for demo purposes only.
+          </div>
+
+          {/* Floating badge */}
+          <FloatingBadge active={overlayActive} onToggle={() => setOverlayActive(a => !a)} />
+        </div>
+      );
+    }
+
+    /* ========================================================
+       BRAND DASHBOARD
+    ======================================================== */
+    function DoughnutChart({ data, labels }) {
+      const canvasRef = useRef(null);
+      const chartRef = useRef(null);
+      useEffect(() => {
+        if (!canvasRef.current) return;
+        if (chartRef.current) chartRef.current.destroy();
+        chartRef.current = new Chart(canvasRef.current, {
+          type: 'doughnut',
+          data: {
+            labels,
+            datasets: [{
+              data,
+              backgroundColor: ['#C4542A','#D4956A','#8B7355','#E8C5A8'],
+              borderWidth: 0,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '62%',
+            plugins: {
+              legend: {
+                position: 'right',
+                labels: {
+                  font: { family: 'Inter', size: 11 },
+                  color: '#8B7355',
+                  boxWidth: 10,
+                  padding: 12,
+                }
+              }
+            }
+          }
+        });
+        return () => chartRef.current?.destroy();
+      }, []);
+      return <canvas ref={canvasRef} />;
+    }
+
+    function BarChartComp({ data, labels }) {
+      const canvasRef = useRef(null);
+      const chartRef = useRef(null);
+      useEffect(() => {
+        if (!canvasRef.current) return;
+        if (chartRef.current) chartRef.current.destroy();
+        chartRef.current = new Chart(canvasRef.current, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{
+              data,
+              backgroundColor: data.map((_, i) => i === 0 ? '#C4542A' : '#D4956A'),
+              borderRadius: 3,
+              borderSkipped: false,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: { legend: { display: false } },
+            scales: {
+              x: {
+                grid: { color: 'rgba(139,115,85,0.1)' },
+                ticks: { font: { family:'Inter', size:10 }, color: '#8B7355' }
+              },
+              y: {
+                grid: { display: false },
+                ticks: { font: { family:'Inter', size:11 }, color: '#1A1A1A' }
+              }
+            }
+          }
+        });
+        return () => chartRef.current?.destroy();
+      }, []);
+      return <canvas ref={canvasRef} />;
+    }
+
+    function BrandDashboard({ onBack }) {
+      const colorData = [34, 28, 22, 16];
+      const colorLabels = ['Warm Autumn', 'Cool Winter', 'Soft Summer', 'Warm Spring'];
+
+      const archetypeData = [42, 35, 28, 19, 14];
+      const archetypeLabels = ['Minimalist', 'Classic', 'Romantic', 'Eclectic', 'Streetwear'];
+
+      const returnRiskRows = [
+        { name: "Satin Slip Dress",      brand: "Zara",            rate: 18, fitFactor: 68 },
+        { name: "Floral Midi Dress",     brand: "& Other Stories", rate: 16, fitFactor: 58 },
+        { name: "Midi Wrap Dress",       brand: "Reformation",     rate: 14, fitFactor: 50 },
+        { name: "Wide Leg Trousers",     brand: "COS",             rate: 12, fitFactor: 40 },
+        { name: "Leather Moto Jacket",   brand: "Aritzia",         rate: 7,  fitFactor: 26 },
+      ];
+
+      const brandConversionRows = [
+        { brand: "Toteme",          archetype: "Minimalist",  convRate: 91, returnRate: 5  },
+        { brand: "ARKET",           archetype: "Minimalist",  convRate: 87, returnRate: 9  },
+        { brand: "Everlane",        archetype: "Classic",     convRate: 84, returnRate: 9  },
+        { brand: "Reformation",     archetype: "Romantic",    convRate: 79, returnRate: 14 },
+        { brand: "COS",             archetype: "Minimalist",  convRate: 76, returnRate: 10 },
+        { brand: "& Other Stories", archetype: "Romantic",    convRate: 72, returnRate: 14 },
+        { brand: "Aritzia",         archetype: "Streetwear",  convRate: 68, returnRate: 7  },
+        { brand: "Zara",            archetype: "Eclectic",    convRate: 61, returnRate: 18 },
+        { brand: "H&M",             archetype: "Eclectic",    convRate: 58, returnRate: 13 },
+      ];
+
+      return (
+        <div className="screen dashboard-screen">
+          <header className="ext-header">
+            <span className="ext-logo">esl<span style={{color:C.accent}}>ucent</span></span>
+            <div className="ext-header-actions">
+              <button className="btn-ghost" onClick={onBack} style={{fontSize:'11px',padding:'6px 10px'}}>
+                ← Shopper View
+              </button>
+            </div>
+          </header>
+
+          <div style={{padding:'12px 20px 0',borderBottom:'1px solid rgba(139,115,85,0.12)'}}>
+            <div style={{fontSize:'10px',letterSpacing:'0.12em',textTransform:'uppercase',color:C.accent,fontWeight:'500',marginBottom:'3px'}}>
+              Brand Intelligence Dashboard
+            </div>
+            <div style={{fontFamily:'Playfair Display, serif',fontSize:'20px',fontWeight:'700',color:C.text,marginBottom:'6px'}}>
+              Here's what your shoppers actually look like — no integration required.
+            </div>
+            <div style={{
+              display:'inline-flex', alignItems:'center', gap:'6px',
+              background:'rgba(196,84,42,0.08)', border:'1px solid rgba(196,84,42,0.18)',
+              borderRadius:'3px', padding:'5px 11px', marginBottom:'12px',
+              fontSize:'11px', color:C.accent, fontWeight:'500',
+            }}>
+              <span>✦</span>
+              No installation required — your shopper data is already here.
+            </div>
+          </div>
+
+          {/* KPIs */}
+          <div className="dashboard-section">
+            <div className="kpi-row">
+              <div className="kpi-card">
+                <div className="kpi-val">2,841</div>
+                <div className="kpi-label">Profiles</div>
+                <div className="kpi-change up">↑ 23% wk</div>
+              </div>
+              <div className="kpi-card">
+                <div className="kpi-val">14%</div>
+                <div className="kpi-label">Avg Return</div>
+                <div className="kpi-change down">↓ 6% vs before</div>
+              </div>
+              <div className="kpi-card">
+                <div className="kpi-val">91%</div>
+                <div className="kpi-label">Fit Score</div>
+                <div className="kpi-change up">↑ 4pts</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="dashboard-divider" />
+
+          {/* Demand Gap highlight */}
+          <div className="dashboard-section" style={{paddingBottom:'4px'}}>
+            <div className="demand-gap-card">
+              <div className="demand-gap-eyebrow">Demand Gap Alert</div>
+              <div className="demand-gap-stat">37%</div>
+              <div className="demand-gap-headline">
+                of your shoppers want minimalist styles you don't carry.
+              </div>
+              <div className="demand-gap-sub">
+                Your top archetype — Minimalist (42%) — is underserved by current inventory, which skews 61% Classic. Expanding minimalist SKUs could capture an estimated $84K in prevented walk-aways.
+              </div>
+            </div>
+          </div>
+
+          <div className="dashboard-divider" />
+
+          {/* Color Season Breakdown */}
+          <div className="dashboard-section">
+            <div className="dashboard-section-title">Color Season Breakdown</div>
+            <div className="chart-card">
+              <div className="chart-card-title">Shopper color profiles across all sessions</div>
+              <div className="chart-container">
+                <DoughnutChart data={colorData} labels={colorLabels} />
+              </div>
+            </div>
+          </div>
+
+          <div className="dashboard-divider" />
+
+          {/* Style Archetypes */}
+          <div className="dashboard-section">
+            <div className="dashboard-section-title">Top Style Archetypes</div>
+            <div className="chart-card">
+              <div className="chart-card-title">Archetype frequency — last 30 days</div>
+              <div className="chart-container">
+                <BarChartComp data={archetypeData} labels={archetypeLabels} />
+              </div>
+            </div>
+          </div>
+
+          <div className="dashboard-divider" />
+
+          {/* Return Risk Table */}
+          <div className="dashboard-section">
+            <div className="dashboard-section-title">Return Risk by Product</div>
+            <div className="chart-card" style={{padding:'16px'}}>
+              <table className="return-risk-table">
+                <thead>
+                  <tr>
+                    <th style={{paddingRight:'8px'}}>Product</th>
+                    <th style={{paddingRight:'8px',width:'80px'}}>Brand</th>
+                    <th style={{width:'76px'}}>Fit Risk</th>
+                    <th style={{width:'36px'}}>Rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {returnRiskRows.map((row, i) => (
+                    <tr key={i}>
+                      <td style={{paddingRight:'8px'}}>{row.name}</td>
+                      <td style={{paddingRight:'8px',color:'#8B7355',fontSize:'11px'}}>{row.brand}</td>
+                      <td>
+                        <div className="risk-bar-wrap">
+                          <div className="risk-bar-bg">
+                            <div className="risk-bar-fill" style={{width:`${row.fitFactor}%`}} />
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="risk-pct">{row.rate}%</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="dashboard-divider" />
+
+          {/* Brand Conversion by Archetype */}
+          <div className="dashboard-section">
+            <div className="dashboard-section-title">Brand Conversion by Archetype</div>
+            <div className="chart-card" style={{padding:'16px'}}>
+              <table className="return-risk-table">
+                <thead>
+                  <tr>
+                    <th style={{paddingRight:'8px'}}>Brand</th>
+                    <th style={{paddingRight:'8px'}}>Top Archetype</th>
+                    <th style={{width:'60px'}}>Conv.</th>
+                    <th style={{width:'48px'}}>Returns</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {brandConversionRows.map((row, i) => (
+                    <tr key={i}>
+                      <td style={{paddingRight:'8px',fontWeight:'500'}}>{row.brand}</td>
+                      <td style={{paddingRight:'8px'}}>
+                        <span style={{
+                          background:'rgba(196,84,42,0.08)', color:'#C4542A',
+                          fontSize:'10px', fontWeight:'500', padding:'2px 7px',
+                          borderRadius:'10px', whiteSpace:'nowrap',
+                        }}>{row.archetype}</span>
+                      </td>
+                      <td style={{color:'#2A8B55',fontWeight:'600',fontSize:'12px'}}>{row.convRate}%</td>
+                      <td><span className="risk-pct">{row.returnRate}%</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="dashboard-divider" />
+
+          {/* Mock shopper profiles */}
+          <div className="dashboard-section">
+            <div className="dashboard-section-title">Recent Shopper Profiles</div>
+            <div className="shoppers-row">
+              {MOCK_SHOPPERS.map((s, i) => (
+                <div key={i} className="shopper-row">
+                  <div className="shopper-avatar">{s.initials}</div>
+                  <div className="shopper-info">
+                    <div className="shopper-name">{s.name}</div>
+                    <div className="shopper-meta">
+                      {s.colorSeason} · Waist {s.fitProfile.waist}cm · {s.fitProfile.height}cm tall
+                    </div>
+                  </div>
+                  <div className="shopper-arch">{s.archetype}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{height:'32px'}} />
+        </div>
+      );
+    }
+
+    /* ========================================================
+       APP
+    ======================================================== */
+    /* ========================================================
+       PROFILES SCREEN
+    ======================================================== */
+    function ProfilesScreen({ profiles, activeProfileId, onLoad, onDelete, onCompare, onBack }) {
+      const [selected, setSelected] = useState([]);
+
+      function toggleSelect(id) {
+        setSelected(prev =>
+          prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id].slice(-2)
+        );
+      }
+
+      return (
+        <div className="screen profiles-screen">
+          <header className="ext-header">
+            <button className="btn-ghost" onClick={onBack} style={{fontSize:'11px',padding:'6px 10px'}}>← Back</button>
+            <span className="ext-logo" style={{fontSize:'14px'}}>My Profiles</span>
+            <span style={{width:'60px'}} />
+          </header>
+
+          <div className="profiles-list">
+            {profiles.length === 0 ? (
+              <div className="profiles-empty">
+                <div className="profiles-empty-icon">✦</div>
+                <div className="profiles-empty-text">No saved profiles yet.</div>
+                <div style={{fontSize:'12px',color:C.muted}}>Complete a scan to save your first profile.</div>
+              </div>
+            ) : profiles.map(p => {
+              const arch   = p.styleProfile?.archetype || 'classic';
+              const season = p.colorProfile?.season    || '—';
+              const size   = p.fitProfile?.recommendedSize || '—';
+              const isActive = p.id === activeProfileId;
+              const isSel    = selected.includes(p.id);
+              const seasonColor = p.colorProfile?.bestColors?.[0] || C.accent;
+              return (
+                <div key={p.id} className="profile-list-card" style={isSel ? {border:`1px solid ${C.accent}`} : {}}>
+                  {isActive && (
+                    <div className="plc-active-indicator">
+                      <div style={{width:'6px',height:'6px',borderRadius:'50%',background:'#2A8B55'}} />
+                      Active
+                    </div>
+                  )}
+                  <div className="plc-top">
+                    <div className="plc-name">
+                      {arch.charAt(0).toUpperCase() + arch.slice(1)}
+                    </div>
+                    <div className="plc-season-pill" style={{background:seasonColor+'22',color:seasonColor}}>
+                      {season}
+                    </div>
+                    <div className="plc-size-badge">{size}</div>
+                  </div>
+                  <div className="plc-date">
+                    {p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '—'}
+                  </div>
+                  {(p.colorProfile?.bestColors || []).length > 0 && (
+                    <div className="palette-swatches" style={{marginBottom:'10px'}}>
+                      {p.colorProfile.bestColors.slice(0,5).map((hex, i) => (
+                        <div key={i} className="palette-swatch" style={{background:hex,width:'18px',height:'18px'}} />
+                      ))}
+                    </div>
+                  )}
+                  <div className="plc-actions">
+                    <button className="plc-btn primary" onClick={() => onLoad(p)}>
+                      {isActive ? 'Go to Store' : 'Load'}
+                    </button>
+                    <button className="plc-btn danger" onClick={() => onDelete(p.id)}>
+                      Delete
+                    </button>
+                    {profiles.length >= 2 && (
+                      <button
+                        className={`plc-btn${isSel ? ' primary' : ''}`}
+                        onClick={() => toggleSelect(p.id)}
+                      >
+                        {isSel ? '✓ Compare' : 'Compare'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {selected.length === 2 && (
+            <div style={{padding:'12px 16px',borderTop:'1px solid rgba(196,84,42,0.15)'}}>
+              <button className="btn-primary" style={{width:'100%'}} onClick={() => onCompare(selected)}>
+                Compare Selected Profiles →
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    /* ========================================================
+       COMPARE SCREEN
+    ======================================================== */
+    function CompareScreen({ profiles, onBack }) {
+      const [a, b] = profiles;
+      if (!a || !b) return null;
+
+      const fitLabels  = { oversized:'Oversized', relaxed:'Relaxed', fitted:'Fitted', tailored:'Tailored' };
+      const matLabels  = { soft:'Soft & Fluid', structured:'Structured', lightweight:'Lightweight', textured:'Textured' };
+
+      const rows = [
+        { label:'Season',     va: a.colorProfile?.season,            vb: b.colorProfile?.season },
+        { label:'Undertone',  va: a.colorProfile?.undertone,         vb: b.colorProfile?.undertone },
+        { label:'Body Shape', va: a.fitProfile?.bodyShape,           vb: b.fitProfile?.bodyShape },
+        { label:'Size',       va: a.fitProfile?.recommendedSize,     vb: b.fitProfile?.recommendedSize },
+        { label:'Shoulders',  va: a.fitProfile?.shoulders ? a.fitProfile.shoulders+'cm' : '—', vb: b.fitProfile?.shoulders ? b.fitProfile.shoulders+'cm' : '—' },
+        { label:'Hips',       va: a.fitProfile?.hips ? a.fitProfile.hips+'cm' : '—',           vb: b.fitProfile?.hips ? b.fitProfile.hips+'cm' : '—' },
+        { label:'Archetype',  va: a.styleProfile?.archetype,        vb: b.styleProfile?.archetype },
+        { label:'Fit Style',  va: fitLabels[a.styleProfile?.fitPreference] || a.styleProfile?.fitPreference, vb: fitLabels[b.styleProfile?.fitPreference] || b.styleProfile?.fitPreference },
+        { label:'Material',   va: matLabels[a.styleProfile?.material] || a.styleProfile?.material,            vb: matLabels[b.styleProfile?.material] || b.styleProfile?.material },
+      ];
+
+      function fmt(iso) { try { return new Date(iso).toLocaleDateString(); } catch { return '—'; } }
+
+      return (
+        <div className="screen compare-screen">
+          <header className="ext-header">
+            <button className="btn-ghost" onClick={onBack} style={{fontSize:'11px',padding:'6px 10px'}}>← Back</button>
+            <span className="ext-logo" style={{fontSize:'14px'}}>Compare</span>
+            <span style={{width:'60px'}} />
+          </header>
+
+          <div className="compare-body">
+            {/* Column headers */}
+            <div className="compare-cols" style={{marginBottom:'14px'}}>
+              <div className="compare-col" style={{textAlign:'center',padding:'10px 8px'}}>
+                <div style={{fontSize:'10px',color:C.secondary,marginBottom:'4px'}}>Profile A</div>
+                <div style={{fontSize:'11px',fontWeight:600,color:C.text}}>{fmt(a.createdAt)}</div>
+                {a.id === b.id && <div style={{fontSize:'10px',color:C.accent,marginTop:'2px'}}>Active</div>}
+              </div>
+              <div className="compare-vs">VS</div>
+              <div className="compare-col" style={{textAlign:'center',padding:'10px 8px'}}>
+                <div style={{fontSize:'10px',color:C.secondary,marginBottom:'4px'}}>Profile B</div>
+                <div style={{fontSize:'11px',fontWeight:600,color:C.text}}>{fmt(b.createdAt)}</div>
+              </div>
+            </div>
+
+            {/* Comparison rows */}
+            {rows.map(({ label, va, vb }) => {
+              const diff = (va || '—') !== (vb || '—');
+              return (
+                <div key={label} className="compare-field">
+                  <div className="compare-field-label">{label}</div>
+                  <div className="compare-cols">
+                    <div className="compare-field-value" style={diff ? {color:C.accent} : {}}>{va || '—'}</div>
+                    <div />
+                    <div className="compare-field-value" style={diff ? {color:C.accent} : {}}>{vb || '—'}</div>
+                  </div>
+                  {diff && <div className="compare-diff">Different</div>}
+                </div>
+              );
+            })}
+
+            {/* Palettes side by side */}
+            <div className="compare-field" style={{marginTop:'16px'}}>
+              <div className="compare-field-label">Color Palette</div>
+              <div className="compare-cols">
+                <div className="palette-swatches">
+                  {(a.colorProfile?.bestColors || []).slice(0,5).map((hex, i) => (
+                    <div key={i} className="palette-swatch" style={{background:hex,width:'20px',height:'20px'}} />
+                  ))}
+                </div>
+                <div />
+                <div className="palette-swatches">
+                  {(b.colorProfile?.bestColors || []).slice(0,5).map((hex, i) => (
+                    <div key={i} className="palette-swatch" style={{background:hex,width:'20px',height:'20px'}} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ========================================================
+       APP
+    ======================================================== */
+    function App() {
+      const [screen,         setScreen]         = useState('welcome');
+      const [fitProfile,     setFitProfile]     = useState(null);
+      const [colorProfile,   setColorProfile]   = useState(null);
+      const [tasteProfile,   setTasteProfile]   = useState(null);
+      const [currentProfile, setCurrentProfile] = useState(null);
+      const [savedProfiles,  setSavedProfiles]  = useState(() => loadAllProfiles());
+      const [activeIdState,  setActiveIdState]  = useState(() => getActiveProfileId());
+      const [compareIds,     setCompareIds]     = useState([]);
+
+      const activeProfile = savedProfiles.find(p => p.id === activeIdState) || savedProfiles[0] || null;
+
+      useEffect(() => {
+        if (activeProfile) {
+          setFitProfile(activeProfile.fitProfile || null);
+          setColorProfile(activeProfile.colorProfile || null);
+          setTasteProfile(activeProfile.styleProfile || null);
+        }
+      }, []);
+
+      function handleWelcomeStart(mode) {
+        if (mode === 'skip' && activeProfile) {
+          setScreen('products');
+        } else {
+          setScreen('scan');
+        }
+      }
+
+      function handleScanComplete(fp, cp) {
+        setFitProfile(fp);
+        setColorProfile(cp);
+        setScreen('quiz');
+      }
+
+      function handleQuizComplete(tp) {
+        setTasteProfile(tp);
+        const prof = buildFullProfile(fitProfile, colorProfile, tp);
+        setCurrentProfile(prof);
+        setScreen('profile');
+      }
+
+      function handleSaveProfile(prof) {
+        upsertProfile(prof);
+        setActiveProfileId(prof.id);
+        setSavedProfiles(loadAllProfiles());
+        setActiveIdState(prof.id);
+      }
+
+      function handleLoadProfile(prof) {
+        setFitProfile(prof.fitProfile || null);
+        setColorProfile(prof.colorProfile || null);
+        setTasteProfile(prof.styleProfile || null);
+        setActiveProfileId(prof.id);
+        setActiveIdState(prof.id);
+        setScreen('products');
+      }
+
+      function handleDeleteProfile(id) {
+        removeProfile(id);
+        const updated = loadAllProfiles();
+        setSavedProfiles(updated);
+        if (activeIdState === id) {
+          const nextId = updated[0]?.id || null;
+          setActiveProfileId(nextId);
+          setActiveIdState(nextId);
+        }
+      }
+
+      function handleCompare(ids) {
+        setCompareIds(ids);
+        setScreen('compare');
+      }
+
+      const storeProfile = { fitProfile, tasteProfile };
+      const inOverlayMode = screen === 'products' || screen === 'dashboard';
+      const compareProfiles = compareIds.map(id => savedProfiles.find(p => p.id === id)).filter(Boolean);
+
+      return (
+        <div className="browser-chrome">
+          <div className="browser-bar">
+            <div className="browser-dots">
+              <div className="browser-dot" />
+              <div className="browser-dot" />
+              <div className="browser-dot" />
+            </div>
+            <div className="browser-url">
+              arket.com/en-gb/womens/new-arrivals{inOverlayMode ? ' · ✦ Eslucent Active' : ''}
+            </div>
+          </div>
+
+          <div className="browser-body">
+            <div className={`store-page${inOverlayMode ? '' : ' store-page--bg'}`}>
+              {screen === 'products' && (
+                <StoreOverlay
+                  profile={storeProfile}
+                  onEditProfile={() => setScreen('welcome')}
+                  onViewDashboard={() => setScreen('dashboard')}
+                />
+              )}
+              {screen === 'dashboard' && (
+                <BrandDashboard onBack={() => setScreen('products')} />
+              )}
+              {!inOverlayMode && <StorePlaceholderBg />}
+            </div>
+
+            {!inOverlayMode && (
+              <div className="onboarding-backdrop">
+                <div className="onboarding-panel">
+                  {screen === 'welcome' && (
+                    <WelcomeScreen
+                      onStart={handleWelcomeStart}
+                      activeProfile={activeProfile}
+                      profiles={savedProfiles}
+                      onMyProfiles={() => setScreen('profiles')}
+                    />
+                  )}
+                  {screen === 'scan' && (
+                    <ScanScreen onComplete={handleScanComplete} existingFitProfile={fitProfile} />
+                  )}
+                  {screen === 'quiz' && (
+                    <QuizScreen onComplete={handleQuizComplete} colorProfile={colorProfile} />
+                  )}
+                  {screen === 'profile' && currentProfile && (
+                    <ProfileCard
+                      profile={currentProfile}
+                      onContinue={() => setScreen('products')}
+                      onSave={handleSaveProfile}
+                      onRetake={() => setScreen('scan')}
+                    />
+                  )}
+                  {screen === 'profiles' && (
+                    <ProfilesScreen
+                      profiles={savedProfiles}
+                      activeProfileId={activeIdState}
+                      onLoad={handleLoadProfile}
+                      onDelete={handleDeleteProfile}
+                      onCompare={handleCompare}
+                      onBack={() => setScreen('welcome')}
+                    />
+                  )}
+                  {screen === 'compare' && compareProfiles.length === 2 && (
+                    <CompareScreen
+                      profiles={compareProfiles}
+                      onBack={() => setScreen('profiles')}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
