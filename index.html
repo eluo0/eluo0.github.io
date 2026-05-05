@@ -8,9 +8,10 @@
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.11.0/dist/tf-core.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.11.0/dist/tf-backend-webgl.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -2195,8 +2196,8 @@
 
       function setScanState(s) { scanStateRef.current = s; setScanStateRaw(s); }
 
-      /* ---- Pose results handler ---- */
-      function handlePoseResults(results) {
+      /* ---- Pose results handler (MoveNet keypoints — pixel coords) ---- */
+      function handlePoseResults(keypoints) {
         if (!canvasRef.current || !videoRef.current) return;
         if (scanStateRef.current !== 'body-align' && scanStateRef.current !== 'body-measuring') return;
 
@@ -2208,18 +2209,29 @@
         if (canvas.height !== H) canvas.height = H;
         ctx.clearRect(0, 0, W, H);
 
-        if (!results.poseLandmarks) { stableFrames.current = 0; return; }
+        if (!keypoints || keypoints.length < 17) { stableFrames.current = 0; return; }
 
-        try {
-          if (typeof drawConnectors !== 'undefined' && typeof POSE_CONNECTIONS !== 'undefined') {
-            drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, { color:'rgba(196,84,42,0.7)', lineWidth:2 });
-            drawLandmarks(ctx, results.poseLandmarks, { color:'#C4542A', lineWidth:1, radius:3 });
+        /* Draw skeleton */
+        const connections = [[5,6],[5,11],[6,12],[11,12],[11,13],[13,15],[12,14],[14,16]];
+        ctx.strokeStyle = 'rgba(196,84,42,0.7)';
+        ctx.lineWidth = 2;
+        connections.forEach(([i, j]) => {
+          const a = keypoints[i], b = keypoints[j];
+          if (a && b && a.score > 0.3 && b.score > 0.3) {
+            ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
           }
-        } catch(e) {}
+        });
+        [5,6,11,12,15,16].forEach(i => {
+          const kp = keypoints[i];
+          if (kp && kp.score > 0.3) {
+            ctx.fillStyle = '#C4542A';
+            ctx.beginPath(); ctx.arc(kp.x, kp.y, 4, 0, 2*Math.PI); ctx.fill();
+          }
+        });
 
-        const lms = results.poseLandmarks;
-        const required = [11,12,23,24,27,28];
-        const allVis = required.every(i => lms[i] && lms[i].visibility > 0.5);
+        /* MoveNet indices: 5=lShoulder 6=rShoulder 11=lHip 12=rHip 15=lAnkle 16=rAnkle */
+        const required = [5, 6, 11, 12, 15, 16];
+        const allVis = required.every(i => keypoints[i] && keypoints[i].score > 0.3);
 
         if (allVis) {
           stableFrames.current++;
@@ -2228,19 +2240,19 @@
           if (scanStateRef.current !== 'body-measuring') setScanState('body-measuring');
 
           if (stableFrames.current >= 60) {
-            const lm  = i => ({ x: lms[i].x * W, y: lms[i].y * H });
+            const kp  = i => keypoints[i];
             const dst = (a, b) => Math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2);
             const mid = (a, b) => ({ x:(a.x+b.x)/2, y:(a.y+b.y)/2 });
-            const ls=lm(11), rs=lm(12), lh=lm(23), rh=lm(24), la=lm(27), ra=lm(28);
-            const shoulderPx = dst(ls,rs);
-            const hipPx      = dst(lh,rh);
+            const ls=kp(5), rs=kp(6), lh=kp(11), rh=kp(12), la=kp(15), ra=kp(16);
+            const shoulderPx = dst(ls, rs);
+            const hipPx      = dst(lh, rh);
             const torsoPx    = dst(mid(ls,rs), mid(lh,rh));
             const legPx      = dst(mid(lh,rh), mid(la,ra));
             const pxPerCm    = shoulderPx / 41;
             const shoulders  = Math.round(shoulderPx / pxPerCm);
             const hips       = Math.round(hipPx      / pxPerCm);
             const torso      = Math.round(torsoPx    / pxPerCm);
-            const legs       = Math.round(legPx      / pxPerCm);
+            const legs       = Math.round(legPx       / pxPerCm);
             const height     = Math.round(torso + legs + 26);
             const recSize    = shoulders<38?'XS':shoulders<40?'S':shoulders<42?'M':shoulders<44?'L':'XL';
             const diff       = shoulders - hips;
@@ -2346,27 +2358,22 @@
             return;
           }
 
-          /* 2 — MediaPipe Pose */
+          /* 2 — TF.js MoveNet (WebGL — no WASM, works on all browsers) */
           setScanState('pose-init');
-          if (typeof Pose === 'undefined') {
+          if (typeof poseDetection === 'undefined' || typeof tf === 'undefined') {
             setCameraError('Body detection library failed to load — using manual entry.');
             setScanState('manual-body');
             return;
           }
           try {
-            const pose = new Pose({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${f}` });
-            pose.setOptions({ modelComplexity:0, smoothLandmarks:true, minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
-            pose.onResults(handlePoseResults);
-            const poseTimeout = new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('timeout')), 20000)
+            await tf.ready();
+            const detector = await poseDetection.createDetector(
+              poseDetection.SupportedModels.MoveNet,
+              { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
             );
-            await Promise.race([pose.initialize(), poseTimeout]);
-            poseModelRef.current = pose;
+            poseModelRef.current = detector;
           } catch(e) {
-            const msg = e.message === 'timeout'
-              ? 'Body detection took too long to load. Using manual entry.'
-              : 'Body detection failed to initialize — using manual entry.';
-            setCameraError(msg);
+            setCameraError('Body detection failed to initialize — using manual entry.');
             setScanState('manual-body');
             return;
           }
@@ -2375,7 +2382,7 @@
 
           const bodyTimeout = setTimeout(() => {
             if (scanStateRef.current === 'body-align') {
-              setCameraError('Full body not detected in 15s — make sure you are 1–2m from the camera and fully in frame.');
+              setCameraError('Full body not detected in 15s — stand 1–2m back so your full body is in frame.');
               setScanState('manual-body');
             }
           }, 15000);
@@ -2383,14 +2390,16 @@
           /* 3 — Body scan frame loop */
           while (activeRef.current &&
                 (scanStateRef.current === 'body-align' || scanStateRef.current === 'body-measuring')) {
+            await new Promise(r => requestAnimationFrame(r));
             if (videoRef.current && videoRef.current.readyState >= 2 && poseModelRef.current) {
-              try { await poseModelRef.current.send({ image: videoRef.current }); } catch(e) {}
-            } else {
-              await new Promise(r => requestAnimationFrame(r));
+              try {
+                const poses = await poseModelRef.current.estimatePoses(videoRef.current);
+                if (poses.length > 0) handlePoseResults(poses[0].keypoints);
+              } catch(e) {}
             }
           }
           clearTimeout(bodyTimeout);
-          try { poseModelRef.current && poseModelRef.current.close(); } catch(e) {}
+          try { poseModelRef.current && poseModelRef.current.dispose(); } catch(e) {}
           if (!activeRef.current || scanStateRef.current !== 'body-done') return;
 
           /* Pause to let user see results */
