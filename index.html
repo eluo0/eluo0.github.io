@@ -10,8 +10,6 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/posenet@2.2.2/dist/posenet.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
@@ -2271,62 +2269,29 @@
         }
       }
 
-      /* ---- Face mesh results handler ---- */
-      function handleFaceMeshResults(results) {
-        if (!canvasRef.current || !videoRef.current) return;
-        if (scanStateRef.current !== 'color-scan') return;
-
-        const canvas = canvasRef.current;
-        const ctx    = canvas.getContext('2d');
-        const W = videoRef.current.videoWidth  || 640;
-        const H = videoRef.current.videoHeight || 480;
-        if (canvas.width !== W)  canvas.width  = W;
-        if (canvas.height !== H) canvas.height = H;
-        ctx.clearRect(0, 0, W, H);
-
-        const lms = results.multiFaceLandmarks && results.multiFaceLandmarks[0];
-        if (!lms) return;
-
+      /* ---- Canvas skin sampling (no WASM — samples center-face region of video) ---- */
+      function sampleSkinColor() {
+        if (!videoRef.current || videoRef.current.readyState < 2) return null;
         try {
-          if (typeof drawConnectors !== 'undefined') {
-            if (typeof FACEMESH_TESSELATION !== 'undefined')
-              drawConnectors(ctx, lms, FACEMESH_TESSELATION, { color:'rgba(196,84,42,0.1)', lineWidth:0.5 });
-            if (typeof FACEMESH_FACE_OVAL !== 'undefined')
-              drawConnectors(ctx, lms, FACEMESH_FACE_OVAL,   { color:'rgba(196,84,42,0.55)', lineWidth:2 });
-          }
-        } catch(e) {}
-
-        colorFrames.current++;
-        if (colorFrames.current < 30 || colorResultsRef.current) return;
-
-        try {
+          const vid = videoRef.current;
+          const W = vid.videoWidth  || 640;
+          const H = vid.videoHeight || 480;
           const tmp = document.createElement('canvas');
           tmp.width = W; tmp.height = H;
           const tc = tmp.getContext('2d');
-          tc.drawImage(videoRef.current, 0, 0, W, H);
-
-          const idxs = [116,123,147,9,10,151,50,205];
+          tc.drawImage(vid, 0, 0, W, H);
+          /* Sample forehead + cheek region: center 24% wide, rows 12–40% down */
+          const x1 = Math.floor(W * 0.38), x2 = Math.floor(W * 0.62);
+          const y1 = Math.floor(H * 0.12), y2 = Math.floor(H * 0.40);
           let totalR=0, totalG=0, totalB=0, count=0;
-          idxs.forEach(idx => {
-            if (!lms[idx]) return;
-            const px = Math.floor(lms[idx].x * W);
-            const py = Math.floor(lms[idx].y * H);
-            for (let dy=-3; dy<=3; dy++) for (let dx=-3; dx<=3; dx++) {
-              const x = Math.max(0, Math.min(W-1, px+dx));
-              const y = Math.max(0, Math.min(H-1, py+dy));
+          for (let y = y1; y < y2; y += 4) {
+            for (let x = x1; x < x2; x += 4) {
               const d = tc.getImageData(x, y, 1, 1).data;
               totalR += d[0]; totalG += d[1]; totalB += d[2]; count++;
             }
-          });
-
-          if (count > 0) {
-            const lab = rgbToLab(totalR/count, totalG/count, totalB/count);
-            const cp  = mapToColorSeason(lab);
-            cp.analysisMethod = 'camera';
-            colorResultsRef.current = cp;
-            setScanState('color-done');
           }
-        } catch(e) { /* getImageData may fail on some browsers; fallback handled by timeout */ }
+          return count > 0 ? { r: totalR/count, g: totalG/count, b: totalB/count } : null;
+        } catch(e) { return null; }
       }
 
       /* ---- Main async effect (re-runs on retry) ---- */
@@ -2411,37 +2376,31 @@
           await new Promise(r => setTimeout(r, 1100));
           if (!activeRef.current) return;
 
-          /* 4 — MediaPipe Face Mesh */
+          /* 4 — Canvas skin sampling (instant — no model download) */
           setScanState('color-init');
-          if (typeof FaceMesh === 'undefined') { setScanState('undertone-pick'); return; }
-          try {
-            const fm = new FaceMesh({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${f}` });
-            fm.setOptions({ maxNumFaces:1, refineLandmarks:false, minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
-            fm.onResults(handleFaceMeshResults);
-            const fmTimeout = new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('timeout')), 15000)
-            );
-            await Promise.race([fm.initialize(), fmTimeout]);
-            faceMeshRef.current = fm;
-          } catch(e) { setScanState('undertone-pick'); return; }
-
+          await new Promise(r => setTimeout(r, 400)); /* brief pause so UI updates */
           colorFrames.current = 0;
           setScanState('color-scan');
 
           const colorTimeout = setTimeout(() => {
             if (scanStateRef.current === 'color-scan') setScanState('undertone-pick');
-          }, 12000);
+          }, 8000);
 
-          /* 5 — Color scan frame loop */
+          /* 5 — Accumulate samples across 30 frames then decide */
+          let rSum=0, gSum=0, bSum=0, sampleCount=0;
           while (activeRef.current && scanStateRef.current === 'color-scan') {
-            if (videoRef.current && videoRef.current.readyState >= 2 && faceMeshRef.current) {
-              try { await faceMeshRef.current.send({ image: videoRef.current }); } catch(e) {}
-            } else {
-              await new Promise(r => requestAnimationFrame(r));
+            await new Promise(r => requestAnimationFrame(r));
+            const px = sampleSkinColor();
+            if (px) { rSum += px.r; gSum += px.g; bSum += px.b; sampleCount++; }
+            if (sampleCount >= 30 && !colorResultsRef.current) {
+              const lab = rgbToLab(rSum/sampleCount, gSum/sampleCount, bSum/sampleCount);
+              const cp  = mapToColorSeason(lab);
+              cp.analysisMethod = 'camera';
+              colorResultsRef.current = cp;
+              setScanState('color-done');
             }
           }
           clearTimeout(colorTimeout);
-          try { faceMeshRef.current && faceMeshRef.current.close(); } catch(e) {}
 
           if (!activeRef.current) return;
 
@@ -2460,7 +2419,6 @@
         return () => {
           activeRef.current = false;
           try { poseModelRef.current && poseModelRef.current.close(); } catch(e) {}
-          try { faceMeshRef.current && faceMeshRef.current.close(); } catch(e) {}
           streamRef.current && streamRef.current.getTracks().forEach(t => t.stop());
         };
       }, [retryKey]);
@@ -2494,8 +2452,8 @@
       const statusLabels = {
         'cam-init':'Requesting camera…', 'pose-init':'Loading body detection…',
         'body-align':'Stand back — full body in frame', 'body-measuring':'Hold still — measuring…',
-        'body-done':'Body scan complete', 'color-init':'Loading color analysis…',
-        'color-scan':'Look directly at the camera',
+        'body-done':'Body scan complete', 'color-init':'Preparing color scan…',
+        'color-scan':'Look directly at the camera — face centered',
       };
 
       return (
