@@ -2184,9 +2184,9 @@
       const [bodyData,   setBodyData]    = useState(null);
       const [undertone,  setUndertone]   = useState(null);
       const [manualData, setManualData]  = useState({
-        height:    existingFitProfile?.height    ? String(existingFitProfile.height)    : '',
-        shoulders: existingFitProfile?.shoulders ? String(existingFitProfile.shoulders) : '',
-        hips:      existingFitProfile?.hips      ? String(existingFitProfile.hips)      : '',
+        height: existingFitProfile?.height ? String(existingFitProfile.height) : '',
+        chest:  '',
+        hips:   existingFitProfile?.hips   ? String(existingFitProfile.hips)   : '',
       });
       const [cameraError, setCameraError] = useState('');
       const [retryKey,   setRetryKey]    = useState(0);
@@ -2245,19 +2245,55 @@
             const dst = (a, b) => Math.sqrt((px(a)-px(b))**2 + (py(a)-py(b))**2);
             const mid = (a, b) => ({ position:{ x:(px(a)+px(b))/2, y:(py(a)+py(b))/2 } });
             const ls=kp(5), rs=kp(6), lh=kp(11), rh=kp(12), la=kp(15), ra=kp(16);
-            const shoulderPx = dst(ls, rs);
-            const hipPx      = dst(lh, rh);
-            const torsoPx    = dst(mid(ls,rs), mid(lh,rh));
-            const legPx      = dst(mid(lh,rh), mid(la,ra));
-            const pxPerCm    = shoulderPx / 41;
-            const shoulders  = Math.round(shoulderPx / pxPerCm);
-            const hips       = Math.round(hipPx      / pxPerCm);
-            const torso      = Math.round(torsoPx    / pxPerCm);
-            const legs       = Math.round(legPx      / pxPerCm);
-            const height     = Math.round(torso + legs + 26);
-            const recSize    = shoulders<38?'XS':shoulders<40?'S':shoulders<42?'M':shoulders<44?'L':'XL';
-            const diff       = shoulders - hips;
-            const bodyShape  = Math.abs(diff)<5 ? 'Rectangle' : diff>=5 ? 'Inverted Triangle' : (hips-shoulders>=5 ? 'Pear' : 'Rectangle');
+
+            /* Fix 1 — guard against undefined/NaN positions before any math */
+            const pts = [ls, rs, lh, rh, la, ra];
+            if (!pts.every(p => Number.isFinite(px(p)) && Number.isFinite(py(p)))) {
+              stableFrames.current = 0; setBodyProgress(0); return;
+            }
+
+            const shoulderPx   = dst(ls, rs);
+            const hipPx        = dst(lh, rh);
+            const torsoPx      = dst(mid(ls,rs), mid(lh,rh));
+            const legPx        = dst(mid(lh,rh), mid(la,ra));
+            const bodyHeightPx = dst(mid(ls,rs), mid(la,ra));
+
+            /* Fix 2 — sanity-check pixel distances before converting to cm */
+            if (bodyHeightPx <= 20 || shoulderPx <= 5) {
+              stableFrames.current = 0; setBodyProgress(0); return;
+            }
+
+            /* Calibrate using shoulder-to-ankle span (≈74.5% of body height).
+               Reference 167 cm person → 167×0.745 = 124.4 cm. Distance-independent. */
+            const pxPerCm  = bodyHeightPx / 124.4;
+            const shoulders = Math.round(shoulderPx   / pxPerCm);
+            const hips      = Math.round(hipPx        / pxPerCm);
+            const torso     = Math.round(torsoPx      / pxPerCm);
+            const height    = Math.round(bodyHeightPx / pxPerCm / 0.745);
+
+            /* Fix 3 — reject implausible human values */
+            if (
+              shoulders < 30 || shoulders > 60 ||
+              hips      < 60 || hips      > 130 ||
+              torso     < 30 || torso     > 70  ||
+              height    < 140 || height   > 210
+            ) {
+              setCameraError("Couldn't get a clean read — please use manual entry.");
+              setScanState('manual-body');
+              return;
+            }
+
+            /* Fix 4 — bust-estimate size ladder (if/else so NaN can't fall to XL) */
+            const bust = shoulders / 0.445;
+            let recSize;
+            if      (bust < 81) recSize = 'XS';
+            else if (bust < 87) recSize = 'S';
+            else if (bust < 93) recSize = 'M';
+            else if (bust < 99) recSize = 'L';
+            else                recSize = 'XL';
+
+            const diff      = shoulders - hips;
+            const bodyShape = Math.abs(diff)<5 ? 'Rectangle' : diff>=5 ? 'Inverted Triangle' : (hips-shoulders>=5 ? 'Pear' : 'Rectangle');
             const fp = { shoulders, hips, torso, height, recommendedSize:recSize, bodyShape, scanMethod:'camera' };
             bodyResultsRef.current = fp;
             setBodyData(fp);
@@ -2371,43 +2407,7 @@
           clearTimeout(bodyTimeout);
           try { poseModelRef.current && poseModelRef.current.dispose(); } catch(e) {}
           if (!activeRef.current || scanStateRef.current !== 'body-done') return;
-
-          /* Pause to let user see results */
-          await new Promise(r => setTimeout(r, 1100));
-          if (!activeRef.current) return;
-
-          /* 4 — Canvas skin sampling (instant — no model download) */
-          setScanState('color-init');
-          await new Promise(r => setTimeout(r, 400)); /* brief pause so UI updates */
-          colorFrames.current = 0;
-          setScanState('color-scan');
-
-          const colorTimeout = setTimeout(() => {
-            if (scanStateRef.current === 'color-scan') setScanState('undertone-pick');
-          }, 8000);
-
-          /* 5 — Accumulate samples across 30 frames then decide */
-          let rSum=0, gSum=0, bSum=0, sampleCount=0;
-          while (activeRef.current && scanStateRef.current === 'color-scan') {
-            await new Promise(r => requestAnimationFrame(r));
-            const px = sampleSkinColor();
-            if (px) { rSum += px.r; gSum += px.g; bSum += px.b; sampleCount++; }
-            if (sampleCount >= 30 && !colorResultsRef.current) {
-              const lab = rgbToLab(rSum/sampleCount, gSum/sampleCount, bSum/sampleCount);
-              const cp  = mapToColorSeason(lab);
-              cp.analysisMethod = 'camera';
-              colorResultsRef.current = cp;
-              setScanState('color-done');
-            }
-          }
-          clearTimeout(colorTimeout);
-
-          if (!activeRef.current) return;
-
-          if (scanStateRef.current === 'color-done' && colorResultsRef.current) {
-            onComplete(bodyResultsRef.current, colorResultsRef.current);
-          }
-          /* if undertone-pick, user completes via button */
+          /* User reviews results and confirms via button → handleBodyConfirm */
         }
 
         run().catch(err => {
@@ -2425,10 +2425,13 @@
 
       /* ---- Manual body fallback ---- */
       function handleManualSubmit() {
-        const h  = parseFloat(manualData.height)    || 165;
-        const s  = parseFloat(manualData.shoulders) || 41;
-        const hi = parseFloat(manualData.hips)      || 95;
-        const recSize   = s<38?'XS':s<40?'S':s<42?'M':s<44?'L':'XL';
+        const h     = parseFloat(manualData.height) || 165;
+        const chest = parseFloat(manualData.chest)  || 90;
+        const hi    = parseFloat(manualData.hips)   || 95;
+        /* Chest/bust-based sizing (women's standard cm ranges) */
+        const recSize = chest<81?'XS':chest<87?'S':chest<93?'M':chest<99?'L':'XL';
+        /* Estimate shoulder width from chest for body-shape calc */
+        const s = Math.round(chest * 0.445);
         const diff      = s - hi;
         const bodyShape = Math.abs(diff)<5?'Rectangle':diff>=5?'Inverted Triangle':hi-s>=5?'Pear':'Rectangle';
         const fp = { shoulders:s, hips:hi, torso:Math.round(h*0.32), height:h, recommendedSize:recSize, bodyShape, scanMethod:'manual' };
@@ -2436,6 +2439,9 @@
         setBodyData(fp);
         setScanState('undertone-pick');
       }
+
+      /* ---- Body confirm ---- */
+      function handleBodyConfirm() { setScanState('undertone-pick'); }
 
       /* ---- Undertone fallback ---- */
       function handleUndertoneSelect(u) { setUndertone(u); }
@@ -2447,8 +2453,8 @@
       }
 
       /* ---- Derived display values ---- */
-      const showCamera  = ['body-align','body-measuring','body-done','color-init','color-scan'].includes(scanState);
-      const headerLabel = ['body-align','body-measuring','body-done','pose-init','cam-init'].includes(scanState) ? 'Body Scan' : 'Color Analysis';
+      const showCamera  = ['body-align','body-measuring','body-done'].includes(scanState);
+      const headerLabel = ['body-align','body-measuring','body-done','pose-init','cam-init'].includes(scanState) ? 'Body Scan' : 'Color Profile';
       const statusLabels = {
         'cam-init':'Requesting camera…', 'pose-init':'Loading body detection…',
         'body-align':'Stand back — full body in frame', 'body-measuring':'Hold still — measuring…',
@@ -2542,19 +2548,45 @@
               </>
             )}
 
-            {/* Body done */}
+            {/* Body done — user reviews and confirms */}
             {scanState === 'body-done' && bodyData && (
               <>
                 <div className="scan-status">
                   <span style={{fontSize:'16px'}}>✅</span>
                   <span className="scan-status-text">Body scan complete</span>
                 </div>
-                <div className="scan-result-card">
-                  <div className="scan-result-eyebrow">Your Recommended Size</div>
+
+                {/* Recommended size — prominent */}
+                <div className="scan-result-card" style={{textAlign:'center',marginBottom:'10px'}}>
+                  <div className="scan-result-eyebrow">Recommended Size</div>
                   <div className="scan-result-size">{bodyData.recommendedSize}</div>
-                  <div className="scan-result-sub">{bodyData.bodyShape} frame · {bodyData.shoulders}cm shoulders · {bodyData.hips}cm hips</div>
+                  <div className="scan-result-sub">{bodyData.bodyShape} frame</div>
                 </div>
-                <div style={{fontSize:'12px',color:C.muted,textAlign:'center'}}>Analyzing your color profile next…</div>
+
+                {/* Measurements grid */}
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px',marginBottom:'12px'}}>
+                  {[
+                    {label:'Shoulders', value:bodyData.shoulders, unit:'cm'},
+                    {label:'Hips',      value:bodyData.hips,      unit:'cm'},
+                    {label:'Torso',     value:bodyData.torso,     unit:'cm'},
+                    {label:'Est. Height',value:bodyData.height,   unit:'cm'},
+                  ].map(({label,value,unit}) => (
+                    <div key={label} style={{background:C.card,borderRadius:'8px',padding:'8px 10px',textAlign:'center'}}>
+                      <div style={{fontSize:'18px',fontWeight:600,color:C.primary,letterSpacing:'-0.5px'}}>
+                        {value}<span style={{fontSize:'11px',color:C.muted,fontWeight:400}}>{unit}</span>
+                      </div>
+                      <div style={{fontSize:'10px',color:C.muted,marginTop:'2px',textTransform:'uppercase',letterSpacing:'0.06em'}}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <button className="btn-primary" onClick={handleBodyConfirm} style={{width:'100%',marginBottom:'6px'}}>
+                  Confirm my size — next: skin tone →
+                </button>
+                <button className="btn-ghost" style={{width:'100%',fontSize:'11px'}}
+                  onClick={() => { setScanState('manual-body'); }}>
+                  Edit measurements
+                </button>
               </>
             )}
 
@@ -2614,9 +2646,9 @@
                   </div>
                 )}
                 {[
-                  {k:'height',    label:'Height (cm)',         placeholder:'e.g. 165'},
-                  {k:'shoulders', label:'Shoulder Width (cm)', placeholder:'e.g. 41'},
-                  {k:'hips',      label:'Hip Width (cm)',       placeholder:'e.g. 95'},
+                  {k:'height', label:'Height (cm)',         placeholder:'e.g. 165'},
+                  {k:'chest',  label:'Chest / Bust (cm)',   placeholder:'e.g. 90'},
+                  {k:'hips',   label:'Hip Width (cm)',      placeholder:'e.g. 95'},
                 ].map(({k,label,placeholder}) => (
                   <div key={k} className="manual-input-row">
                     <label className="manual-input-label">{label}</label>
